@@ -12,6 +12,7 @@ mat73 = "*"
 jupyter = "*"
 ipykernel = "*"
 pymatreader = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.8"
