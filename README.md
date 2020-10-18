@@ -18,6 +18,12 @@ OR
 pipenv run jupyter notebook
 ```
 
+You may need to create a kernel for jupyter notebook with 
+```
+python -m ipykernel install --user --name=irccam
+```
+Then, in jupyter notebook select Kernel -> Change kernel -> irrcam.
+
 ## Data
 The `data` folder is ignored by git, but we should use a consistent structure
 locally to make it easy to work with data in the code. The structure is 
