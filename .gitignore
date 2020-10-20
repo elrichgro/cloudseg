@@ -130,6 +130,7 @@ dmypy.json
 
 # Data folder
 data/
+dsl-data/
 
 # VSCode junk
 .vscode/
