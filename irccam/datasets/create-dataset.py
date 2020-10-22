@@ -1,3 +1,25 @@
+"""
+Take the raw IRCCAM data and RGB data and create train, val, and test sets
+for model training. 
+
+This requires the `extract-irccam-data.py` script to have been run already. That
+script reads the huge matlab file and stores the data for each image 
+individually. This makes this script a lot faster and easier to tweak and 
+experiment with. 
+
+Basic flow:
+- For each day of rgb data:
+    - Read all timestamps,
+    - Get irccam image corresponding to timestamp, preprocess and save
+    - Get rgb image for timestamp, preprocess, create label, and save
+
+Still to do:
+- Fix preprocessing (data is slightly different to the previous data we received,
+    so need to update preprocessing steps)
+- Create label from rgb images (currently rgb image itself is saved)
+- Split into train, val, and test folders (currently just stored as one set)
+"""
+
 import os
 import mat73
 import datetime
