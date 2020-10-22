@@ -55,6 +55,7 @@ def process_day_data(day, ignored_timestamps, subset, offset):
     count = 0
     image_timestamps.sort()
     for idx, timestamp in enumerate(image_timestamps):
+        # Remove this to process all data
         if count > 5:
             break
         count+=1
