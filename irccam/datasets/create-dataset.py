@@ -38,7 +38,7 @@ def create_dataset():
     # For each vis day:
     # - read all image names
     # - ignore ignored ones
-    # - for each one: read irccam one, 
+    # - for each one: process_day
     ignored_timestamps = get_ignored_timestamps()
     vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'vis', 'images'))
     vis_days = filter_ignored(vis_days, ignored_timestamps)
