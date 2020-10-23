@@ -12,10 +12,11 @@ import numpy as np
 
 PROJECT_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../..')
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/remote')
+RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
 
 def extract_data():
     irccam_files = get_contained_files(os.path.join(RAW_DATA_PATH, 'irccam'))
+    irccam_files = [file for file in irccam_files if file.endswith('.mat')]
     extract_path = os.path.join(RAW_DATA_PATH, 'irccam_extract')
     for file in irccam_files:
         timestamp = file.split('_')[1]

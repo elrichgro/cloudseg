@@ -29,29 +29,24 @@ import numpy as np
 
 PROJECT_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../..')
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/remote')
+RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
 DATASET_PATH = os.path.join(PROJECT_PATH, 'data/datasets')
 
-def create_dataset():
-    # Read raw data folder to get vis days
-    # Read ignore file
-    # For each vis day:
-    # - read all image names
-    # - ignore ignored ones
-    # - for each one: process_day
+def create_dataset(dataset_name='dataset_1'):
     ignored_timestamps = get_ignored_timestamps()
-    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'vis', 'images'))
+    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'rgb'))
     vis_days = filter_ignored(vis_days, ignored_timestamps)
 
     for day in vis_days:
-        process_day_data(day, ignored_timestamps, 'train', 0)
+        process_day_data(day, dataset_name, ignored_timestamps, 'train', 0)
 
-def process_day_data(day, ignored_timestamps, subset, offset):
+def process_day_data(day, dataset_name, ignored_timestamps, subset, offset):
     print('Processing data for {}'.format(day))
-    image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, 'vis', 'images', day))
-    image_timestamps = [filename.replace('.jpg', '') for filename in image_filenames]
+    image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, 'rgb', day))
+    image_filenames = [file for file in image_filenames if file.endswith('_0.jpg')]
+    image_timestamps = [filename.replace('_0.jpg', '') for filename in image_filenames]
     image_timestamps = filter_ignored(image_timestamps, ignored_timestamps)
-    img_dir = os.path.join(DATASET_PATH, subset)
+    img_dir = os.path.join(DATASET_PATH, dataset_name, subset)
     count = 0
     image_timestamps.sort()
     for idx, timestamp in enumerate(image_timestamps):
@@ -63,15 +58,21 @@ def process_day_data(day, ignored_timestamps, subset, offset):
         irccam_idx = timestamp_to_idx(timestamp)
         irccam_raw = get_irccam_bt_data(day, irccam_idx)
         irccam_img = process_irccam_img(irccam_raw)
-        irccam_img_path = os.path.join(img_dir, 'irccam', '{}.jpg'.format(offset+idx))
-        saved = cv2.imwrite(irccam_img_path, irccam_img)
+        irccam_img_path = os.path.join(img_dir, 'irccam')
+        if not os.path.exists(irccam_img_path):
+            os.makedirs(irccam_img_path)
+        irccam_img_filename = os.path.join(irccam_img_path, '{}.jpg'.format(offset+idx))
+        saved = cv2.imwrite(irccam_img_filename, irccam_img)
         if saved == False:
             raise Exception('Failed to save image {}'.format(irccam_img_path))
 
         vis_img_raw = get_vis_img(timestamp)
         vis_img = process_vis_img(vis_img_raw)
-        vis_img_path = os.path.join(img_dir, 'vis', '{}.jpg'.format(offset+idx))
-        saved = cv2.imwrite(vis_img_path, vis_img)
+        vis_img_path = os.path.join(img_dir, 'labels')
+        if not os.path.exists(vis_img_path):
+            os.makedirs(vis_img_path)
+        vis_img_filename = os.path.join(vis_img_path, '{}.jpg'.format(offset+idx))
+        saved = cv2.imwrite(vis_img_filename, vis_img)
         if saved == False:
             raise Exception('Failed to save image {}'.format(vis_img_path))
 
@@ -139,7 +140,7 @@ def get_irccam_bt_data(day, idx):
 
 def get_vis_img(timestamp):
     img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-    file_path = os.path.join(RAW_DATA_PATH, 'vis', 'images', img_time.strftime('%Y%m%d'), '{}.jpg'.format(timestamp))
+    file_path = os.path.join(RAW_DATA_PATH, 'rgb', img_time.strftime('%Y%m%d'), '{}_0.jpg'.format(timestamp))
     img_vis = cv2.imread(file_path)
     if img_vis is None:
         raise Exception('Image {} not found'.format(file_path))

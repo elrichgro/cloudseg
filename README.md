@@ -22,7 +22,7 @@ You may need to create a kernel for jupyter notebook with
 ```
 python -m ipykernel install --user --name=irccam
 ```
-Then, in jupyter notebook select Kernel -> Change kernel -> irrcam.
+Then, in jupyter notebook select Kernel -> Change kernel -> irccam.
 
 ## Data
 The `data` folder is ignored by git, but we should use a consistent structure
@@ -31,10 +31,21 @@ currently:
 ```
 .
 └── data/
-    ├── davos/
-    │   ├── irccam
-    │   └── rgb
-    └── geneva/
-        ├── irccam
-        └── rgb
+    ├── raw/
+    │   ├── davos/
+    │   │   ├── irccam
+    │   │   └── rgb
+    │   └── geneva/
+    │       ├── irccam
+    │       └── rgb
+    └── datasets/
+        ├── dataset_1/
+        │   ├── train/
+        │   │   ├── irccam
+        │   │   └── labels
+        │   ├── val/
+        │   │   └── ...
+        │   └── test/
+        │       └── ...
+        └── ...
 ```
