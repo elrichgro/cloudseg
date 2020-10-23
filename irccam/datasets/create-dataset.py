@@ -14,6 +14,7 @@ Basic flow:
     - Get rgb image for timestamp, preprocess, create label, and save
 
 Still to do:
+- Fix irccam processing (see todo note below)
 - Create label from rgb images (currently rgb image itself is saved)
 - Split into train, val, and test folders (currently just stored as one set)
 """
@@ -114,6 +115,16 @@ def timestamp_to_idx(timestamp):
     start_of_day = datetime.datetime.combine(img_time.date(), datetime.time(0,0,0,0))
     return round(((img_time - start_of_day).total_seconds() / 60.0)) - 1
 
+"""
+TODO:
+this function currently reads raw irccam data and then maps to rgb range 
+by taking the min and max values in the image. This is wrong though, because
+it uses a different range for each image.
+
+We should instead figure out what are suitable min and max ir values to use
+over all these images. Then for each one we cap at those min and max
+values and map to grayscale range.
+"""
 def get_irccam_bt_data(day, idx):
     filename = os.path.join(RAW_DATA_PATH, 'irccam_extract', day, 'bt', '{}.npz'.format(idx))
     img_ir_raw = np.load(filename)['arr_0']
