@@ -14,8 +14,6 @@ Basic flow:
     - Get rgb image for timestamp, preprocess, create label, and save
 
 Still to do:
-- Fix preprocessing (data is slightly different to the previous data we received,
-    so need to update preprocessing steps)
 - Create label from rgb images (currently rgb image itself is saved)
 - Split into train, val, and test folders (currently just stored as one set)
 """
@@ -32,7 +30,7 @@ PROJECT_PATH = os.path.join(
 RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
 DATASET_PATH = os.path.join(PROJECT_PATH, 'data/datasets')
 
-def create_dataset(dataset_name='dataset_1'):
+def create_dataset(dataset_name='dataset_v1'):
     ignored_timestamps = get_ignored_timestamps()
     vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'rgb'))
     vis_days = filter_ignored(vis_days, ignored_timestamps)
@@ -53,8 +51,8 @@ def process_day_data(day, dataset_name, ignored_timestamps, subset, offset):
     image_timestamps.sort()
     for idx, timestamp in enumerate(image_timestamps):
         # Remove this to process all data
-        # if count > 5:
-        #     break
+        if count > 5:
+            break
         count+=1
 
         irccam_idx = timestamp_to_idx(timestamp)
@@ -91,18 +89,6 @@ def get_contained_dirs(path):
 def get_contained_files(path):
     return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
-def crop_irrcam_img(img):
-    crop_img = img[20:440, 120:540]
-    return crop_img
-
-def crop_vis_img(img):
-    crop_img = img[50:470, 105:525]
-    return crop_img
-
-def scale_vis_img(img):
-    scale_img = cv2.resize(img, (640, 480))
-    return scale_img
-
 # from https://stackoverflow.com/a/23316542
 def rotate_image(image, angle):
     row,col,_ = image.shape
@@ -111,19 +97,16 @@ def rotate_image(image, angle):
     new_image = cv2.warpAffine(image, rot_mat, (col,row))
     return new_image
 
-def flip_and_rotate_vis_img(img):
-    flip_img = cv2.flip(img, 1)
-    rotate_img = rotate_image(flip_img, -130)
-    return rotate_img
-
 def process_irccam_img(img):
-    cropped_ir = crop_irrcam_img(img)
-    return cropped_ir
+    processed_ir = cv2.flip(img, -1)
+    processed_ir = processed_ir[110:530, 80:500]
+    return processed_ir
 
 def process_vis_img(img):
-    processed_vis = scale_vis_img(img)
-    processed_vis = crop_vis_img(processed_vis)
-    processed_vis = flip_and_rotate_vis_img(processed_vis)
+    processed_vis = cv2.resize(img, (640, 480))
+    processed_vis = processed_vis[50:470, 105:525]
+    processed_vis = cv2.flip(processed_vis, 1)
+    processed_vis = rotate_image(processed_vis, -120)
     return processed_vis
 
 def timestamp_to_idx(timestamp):
