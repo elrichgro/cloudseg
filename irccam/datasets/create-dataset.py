@@ -37,8 +37,10 @@ def create_dataset(dataset_name='dataset_1'):
     vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'rgb'))
     vis_days = filter_ignored(vis_days, ignored_timestamps)
 
+    offset = 0
     for day in vis_days:
-        process_day_data(day, dataset_name, ignored_timestamps, 'train', 0)
+        count = process_day_data(day, dataset_name, ignored_timestamps, 'train', offset)
+        offset += count
 
 def process_day_data(day, dataset_name, ignored_timestamps, subset, offset):
     print('Processing data for {}'.format(day))
@@ -51,8 +53,8 @@ def process_day_data(day, dataset_name, ignored_timestamps, subset, offset):
     image_timestamps.sort()
     for idx, timestamp in enumerate(image_timestamps):
         # Remove this to process all data
-        if count > 5:
-            break
+        # if count > 5:
+        #     break
         count+=1
 
         irccam_idx = timestamp_to_idx(timestamp)
