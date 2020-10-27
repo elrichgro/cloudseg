@@ -129,8 +129,15 @@ dmypy.json
 .pyre/
 
 # Data folder
-data/
-dsl-data/
+/data/**/*.jpg
+/data/**/*.mat
+/data/**/*.npz
+/data/**/*.tif
+dsl-data/*
+
+# Pycharm junk
+.idea
+.iml
 
 # VSCode junk
 .vscode/

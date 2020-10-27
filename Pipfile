@@ -15,6 +15,7 @@ pymatreader = "*"
 matplotlib = "*"
 opencv-contrib-python = "*"
 opencv-python = "*"
+traitlets = "*"
 
 [requires]
 python_version = "3.6"
