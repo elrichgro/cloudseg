@@ -4,6 +4,9 @@ creating a dataset, because there is a lot of unused data in those files.
 
 Here, we extract the raw components of the .mat files, to speed up
 dataset creation.
+
+Changes made in here to prevent big time memory leakage, still won't run without at least 20G of RAM.
+If all else fails temporarily increase swapfile size to stupid levels
 """
 
 import os
@@ -17,7 +20,7 @@ RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
 
 
 def extract_data(file=None):
-    if file == None:
+    if file is None:
         irccam_files = get_contained_files(os.path.join(RAW_DATA_PATH, 'irccam'))
     else:
         irccam_files = [file]

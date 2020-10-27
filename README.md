@@ -41,8 +41,10 @@ currently:
     └── datasets/
         ├── dataset_1/
         │   ├── train/
-        │   │   ├── irccam
-        │   │   └── labels
+        │   │   ├── (day)
+        │   │       ├── (id)_irc.tif
+        │   │       ├── (id)_labels.tif
+        │   │       └── (id)_vis.tif
         │   ├── val/
         │   │   └── ...
         │   └── test/

@@ -18,6 +18,10 @@ Still to do:
 - Fix irccam processing (see todo note below)
 - rgb image horizon mask (currently parts of horizon get marked as clouds)
 - Split into train, val, and test folders (currently just stored as one set)
+
+Considerations:
+- Save images as numpy array instead of as images to make life easier/more uniform for import/export
+- irccam data is between approx. -500 and 60, although most images at between -60, 60. What kind of grayscale to user?
 """
 
 import os
