@@ -35,3 +35,8 @@ def create_rgb_label(image, cloud_ref=2.15):
 
     cloud = rat < cloud_ref
     return cloud
+
+def create_label_image(labels):
+    img = np.zeros(labels.shape, dtype=np.uint8)
+    img[np.where(labels)] = 255
+    return img

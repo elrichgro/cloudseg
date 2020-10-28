@@ -31,7 +31,7 @@ import cv2
 import numpy as np
 
 from datasets.dataset_filter import is_almost_black, filter_ignored
-from datasets.rgb_labeling import create_rgb_label
+from datasets.rgb_labeling import create_rgb_label, create_label_image
 
 PROJECT_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../..')
@@ -62,7 +62,6 @@ def process_day_data(day, dataset_name, subset, offset):
         # Remove this to process all data
         if count > 5:
             break
-        count += 1
 
         irccam_idx = timestamp_to_idx(timestamp)
         try:
@@ -92,7 +91,14 @@ def process_day_data(day, dataset_name, subset, offset):
                 raise Exception('Failed to save image {}'.format(vis_img_filename))
 
             label_filename = os.path.join(img_path, '{}_labels.npz'.format(irccam_idx))
-            np.savez(label_filename, create_rgb_label(vis_img))
+            label_img_filename = os.path.join(img_path, '{}_labels.tif'.format(irccam_idx))
+            label = create_rgb_label(vis_img)
+            label_image = create_label_image(label)
+            saved = cv2.imwrite(label_img_filename, label_image)
+            if not saved:
+                raise Exception('Failed to save image {}'.format(label_img_filename))
+            np.savez(label_filename, label)
+            count += 1
 
     print('Processed {} images for day {}'.format(count, day))
 
