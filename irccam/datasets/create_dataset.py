@@ -63,11 +63,10 @@ def process_day_data(day, dataset_name, subset, offset):
         if count > 5:
             break
 
-        irccam_idx = timestamp_to_idx(timestamp)
         try:
-            irccam_raw = get_irccam_bt_data(day, irccam_idx)
+            irccam_raw = get_irccam_bt_data(timestamp)
         except FileNotFoundError:
-            print("Skipping the rest of {} after".format(day, irccam_idx))
+            print("Skipping the rest of the day after {}".format(timestamp))
             # the irccam data does not exist for this image (sometimes the data is not complete for a day eg. irccam_20180511_rad.mat)
             break
         irccam_img = process_irccam_img(irccam_raw)
@@ -81,17 +80,17 @@ def process_day_data(day, dataset_name, subset, offset):
             if not os.path.exists(img_path):
                 os.makedirs(img_path)
 
-            irccam_img_filename = os.path.join(img_path, '{}_irc.tif'.format(irccam_idx))
+            irccam_img_filename = os.path.join(img_path, '{}_irc.tif'.format(timestamp))
             saved = cv2.imwrite(irccam_img_filename, irccam_img)
             if not saved:
                 raise Exception('Failed to save image {}'.format(irccam_img_filename))
-            vis_img_filename = os.path.join(img_path, '{}_vis.tif'.format(irccam_idx))
+            vis_img_filename = os.path.join(img_path, '{}_vis.tif'.format(timestamp))
             saved = cv2.imwrite(vis_img_filename, vis_img)
             if not saved:
                 raise Exception('Failed to save image {}'.format(vis_img_filename))
 
-            label_filename = os.path.join(img_path, '{}_labels.npz'.format(irccam_idx))
-            label_img_filename = os.path.join(img_path, '{}_labels.tif'.format(irccam_idx))
+            label_filename = os.path.join(img_path, '{}_labels.npz'.format(timestamp))
+            label_img_filename = os.path.join(img_path, '{}_labels.tif'.format(timestamp))
             label = create_rgb_label(vis_img)
             label_image = create_label_image(label)
             saved = cv2.imwrite(label_img_filename, label_image)
@@ -142,7 +141,7 @@ def process_vis_img(img):
 def timestamp_to_idx(timestamp):
     img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
     start_of_day = datetime.datetime.combine(img_time.date(), datetime.time(0, 0, 0, 0))
-    return round(((img_time - start_of_day).total_seconds() / 60.0)) - 1
+    return round(((img_time - start_of_day).total_seconds() / 60.0)) + 1
 
 
 """
@@ -169,8 +168,10 @@ def normalize_irccam_image(img_ir_raw):
     return gray_ir.astype(np.uint16)
 
 
-def get_irccam_bt_data(day, idx):
-    filename = os.path.join(RAW_DATA_PATH, 'irccam_extract', day, 'bt', '{}.npz'.format(idx))
+def get_irccam_bt_data(timestamp):
+    img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+    idx = timestamp_to_idx(timestamp)
+    filename = os.path.join(RAW_DATA_PATH, 'irccam_extract', img_time.strftime('%Y%m%d'), 'bt', '{}.npz'.format(idx))
     return np.load(filename)['arr_0']
 
 
