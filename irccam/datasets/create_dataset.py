@@ -93,6 +93,9 @@ def process_day_data(day, dataset_name, subset, offset):
                 img_path, "{}_labels.tif".format(timestamp)
             )
             label = create_rgb_label(vis_img)
+            label = transform_perspective(
+                label, (irccam_img.shape[0], irccam_img.shape[1])
+            )
             label_image = create_label_image(label)
             saved = cv2.imwrite(label_img_filename, label_image)
             if not saved:
@@ -191,6 +194,12 @@ def get_vis_img(timestamp):
     if img_vis is None:
         raise FileNotFoundError("Image {} not found".format(file_path))
     return img_vis
+
+
+def transform_perspective(img, shape):
+    matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/trans_matrix.csv")
+    M = np.loadtxt(matrix_file, delimiter=",")
+    return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)
 
 
 if __name__ == "__main__":
