@@ -33,26 +33,25 @@ import numpy as np
 from datasets.dataset_filter import is_almost_black, filter_ignored
 from datasets.rgb_labeling import create_rgb_label, create_label_image
 
-PROJECT_PATH = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), '../..')
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
-DATASET_PATH = os.path.join(PROJECT_PATH, 'data/datasets')
+PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
+RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
+DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
 
 
-def create_dataset(dataset_name='dataset_v1'):
-    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, 'rgb'))
+def create_dataset(dataset_name="dataset_v1"):
+    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb"))
     vis_days = filter_ignored(vis_days)
     offset = 0
     for day in vis_days:
-        count = process_day_data(day, dataset_name, 'train', offset)
+        count = process_day_data(day, dataset_name, "train", offset)
         offset += count
 
 
 def process_day_data(day, dataset_name, subset, offset):
-    print('Processing data for {}'.format(day))
-    image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, 'rgb', day))
-    image_filenames = [file for file in image_filenames if file.endswith('_0.jpg')]
-    image_timestamps = [filename.replace('_0.jpg', '') for filename in image_filenames]
+    print("Processing data for {}".format(day))
+    image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
+    image_filenames = [file for file in image_filenames if file.endswith("_0.jpg")]
+    image_timestamps = [filename.replace("_0.jpg", "") for filename in image_filenames]
     image_timestamps = filter_ignored(image_timestamps)
     img_dir = os.path.join(DATASET_PATH, dataset_name, subset)
     count = 0
@@ -76,30 +75,32 @@ def process_day_data(day, dataset_name, subset, offset):
 
         # save if all filtering was OK
         if vis_img is not None and irccam_img is not None:
-            img_path = os.path.join(img_dir, 'images', day)
+            img_path = os.path.join(img_dir, "images", day)
             if not os.path.exists(img_path):
                 os.makedirs(img_path)
 
-            irccam_img_filename = os.path.join(img_path, '{}_irc.tif'.format(timestamp))
+            irccam_img_filename = os.path.join(img_path, "{}_irc.tif".format(timestamp))
             saved = cv2.imwrite(irccam_img_filename, irccam_img)
             if not saved:
-                raise Exception('Failed to save image {}'.format(irccam_img_filename))
-            vis_img_filename = os.path.join(img_path, '{}_vis.tif'.format(timestamp))
+                raise Exception("Failed to save image {}".format(irccam_img_filename))
+            vis_img_filename = os.path.join(img_path, "{}_vis.tif".format(timestamp))
             saved = cv2.imwrite(vis_img_filename, vis_img)
             if not saved:
-                raise Exception('Failed to save image {}'.format(vis_img_filename))
+                raise Exception("Failed to save image {}".format(vis_img_filename))
 
-            label_filename = os.path.join(img_path, '{}_labels.npz'.format(timestamp))
-            label_img_filename = os.path.join(img_path, '{}_labels.tif'.format(timestamp))
+            label_filename = os.path.join(img_path, "{}_labels.npz".format(timestamp))
+            label_img_filename = os.path.join(
+                img_path, "{}_labels.tif".format(timestamp)
+            )
             label = create_rgb_label(vis_img)
             label_image = create_label_image(label)
             saved = cv2.imwrite(label_img_filename, label_image)
             if not saved:
-                raise Exception('Failed to save image {}'.format(label_img_filename))
+                raise Exception("Failed to save image {}".format(label_img_filename))
             np.savez(label_filename, label)
             count += 1
 
-    print('Processed {} images for day {}'.format(count, day))
+    print("Processed {} images for day {}".format(count, day))
 
     return count
 
@@ -127,6 +128,7 @@ def process_irccam_img(img):
     processed_ir = processed_ir[110:530, 80:500]
     return processed_ir
 
+
 # need to add masking too, but unsure about the rotations
 def process_vis_img(img):
     if is_almost_black(img):
@@ -138,10 +140,10 @@ def process_vis_img(img):
     return processed_vis
 
 
-def timestamp_to_idx(timestamp):
-    img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-    start_of_day = datetime.datetime.combine(img_time.date(), datetime.time(0, 0, 0, 0))
-    return round(((img_time - start_of_day).total_seconds() / 60.0)) + 1
+def vis_to_irccam_timestamp(timestamp):
+    vis_ts = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
+    ir_ts = vis_ts
+    return ir_ts
 
 
 """
@@ -163,24 +165,31 @@ def normalize_irccam_image(img_ir_raw):
     mi = np.nanmin(img_ir_raw)
     ma = np.nanmax(img_ir_raw)
     gray_ir = img_ir_raw - mi
-    gray_ir *= (60000 / (ma - mi))
+    gray_ir *= 60000 / (ma - mi)
     np.nan_to_num(gray_ir, copy=False, nan=(2 ** 16 - 1))
     return gray_ir.astype(np.uint16)
 
 
 def get_irccam_bt_data(timestamp):
-    img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-    idx = timestamp_to_idx(timestamp)
-    filename = os.path.join(RAW_DATA_PATH, 'irccam_extract', img_time.strftime('%Y%m%d'), 'bt', '{}.npz'.format(idx))
-    return np.load(filename)['arr_0']
+    ir_ts = vis_to_irccam_timestamp(timestamp)
+    filename = os.path.join(
+        RAW_DATA_PATH,
+        "irccam_extract",
+        ir_ts.strftime("%Y%m%d"),
+        "bt",
+        "{}.npz".format(ir_ts.strftime("%Y%m%d%H%M")),
+    )
+    return np.load(filename)["arr_0"]
 
 
 def get_vis_img(timestamp):
-    img_time = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-    file_path = os.path.join(RAW_DATA_PATH, 'rgb', img_time.strftime('%Y%m%d'), '{}_0.jpg'.format(timestamp))
+    img_time = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
+    file_path = os.path.join(
+        RAW_DATA_PATH, "rgb", img_time.strftime("%Y%m%d"), "{}_0.jpg".format(timestamp)
+    )
     img_vis = cv2.imread(file_path)
     if img_vis is None:
-        raise FileNotFoundError('Image {} not found'.format(file_path))
+        raise FileNotFoundError("Image {} not found".format(file_path))
     return img_vis
 
 
