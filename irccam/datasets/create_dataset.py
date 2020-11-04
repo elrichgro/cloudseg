@@ -29,6 +29,7 @@ import mat73
 import datetime
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from datasets.dataset_filter import is_almost_black, filter_ignored
 from datasets.rgb_labeling import create_rgb_label, create_label_image
@@ -38,17 +39,54 @@ RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
 DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
 
 
-def create_dataset(dataset_name="dataset_v1"):
-    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb"))
+def create_dataset(dataset_name="dataset_v1", train_val_test_split=[0.6, 0.2, 0.2]):
+    assert (
+        sum(train_val_test_split) == 1
+    ), "Invalid train_val_test_split: must sum to 1."
+    vis_days = np.array(get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb")))
     vis_days = filter_ignored(vis_days)
-    offset = 0
-    for day in vis_days:
-        count = process_day_data(day, dataset_name, "train", offset)
-        offset += count
+    num_days = len(vis_days)
+
+    rand_idx = np.random.permutation(np.arange(num_days))
+    train_size = round(num_days * train_val_test_split[0])
+    val_size = round(num_days * train_val_test_split[1])
+    test_size = round(num_days * train_val_test_split[2])
+    print(train_size, val_size, test_size)
+
+    train_idx = rand_idx[:train_size]
+    val_idx = rand_idx[train_size : train_size + val_size]
+    test_idx = rand_idx[train_size + val_size :]
+
+    train_days = vis_days[train_idx]
+    val_days = vis_days[val_idx]
+    test_days = vis_days[test_idx]
+
+    print("Creating train set")
+    for day in tqdm(train_days):
+        process_day_data(day, dataset_name, "train")
+
+    print("Creating val set")
+    for day in tqdm(val_days):
+        process_day_data(day, dataset_name, "val")
+
+    print("Creating test set")
+    for day in tqdm(test_days):
+        process_day_data(day, dataset_name, "test")
 
 
-def process_day_data(day, dataset_name, subset, offset):
-    print("Processing data for {}".format(day))
+# def vis_timestamps_for_day(day):
+#     filenames = [file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")]
+#     timestamps = [filename.replace("_0.jpg", "") for filename in filenames]
+#     return timestamps
+
+# def irccam_timestamps_for_day(day):
+#     filenames = [file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "irccam_extract", day, bt)) if file.endswith(".npz")]
+#     timestamps = [filename.replace(".npz", "") for filename in filenames]
+#     return timestamps
+
+
+def process_day_data(day, dataset_name, subset):
+    # print("Processing {} for {} data".format(day, subset))
     image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
     image_filenames = [file for file in image_filenames if file.endswith("_0.jpg")]
     image_timestamps = [filename.replace("_0.jpg", "") for filename in image_filenames]
@@ -65,9 +103,9 @@ def process_day_data(day, dataset_name, subset, offset):
         try:
             irccam_raw = get_irccam_bt_data(timestamp)
         except FileNotFoundError:
-            print("Skipping the rest of the day after {}".format(timestamp))
+            # print("Skipping the rest of the day after {}".format(timestamp))
             # the irccam data does not exist for this image (sometimes the data is not complete for a day eg. irccam_20180511_rad.mat)
-            break
+            continue
         irccam_img = process_irccam_img(irccam_raw)
 
         vis_img_raw = get_vis_img(timestamp)
@@ -103,7 +141,7 @@ def process_day_data(day, dataset_name, subset, offset):
             np.savez(label_filename, label)
             count += 1
 
-    print("Processed {} images for day {}".format(count, day))
+    # print("Processed {} images for day {}".format(count, day))
 
     return count
 
