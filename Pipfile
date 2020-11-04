@@ -19,6 +19,7 @@ opencv-python = "*"
 traitlets = "*"
 ipython = "*"
 torch = "*"
+torchvision = "*"
 
 [requires]
 python_version = "3.6"
