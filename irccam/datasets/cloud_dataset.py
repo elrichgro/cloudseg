@@ -1,8 +1,8 @@
 from torch.utils.data import Dataset
 import cv2
-
 import os
 from glob import glob
+import numpy as np
 
 
 class CloudDataset(Dataset):
@@ -13,9 +13,7 @@ class CloudDataset(Dataset):
         self.split = split
         self.timestamps = [
             file.replace("_irc.tif", "").split("/")[-1]
-            for file in glob(
-                os.path.join(dataset_root, split, "images", "**/*_irc.tif")
-            )
+            for file in glob(os.path.join(dataset_root, split, "**/*_irc.tif"))
         ]
 
     def __len__(self):
@@ -25,7 +23,12 @@ class CloudDataset(Dataset):
         timestamp = self.timestamps[index]
 
         irc = cv2.imread(self.get_item_path(timestamp, "irc"))
-        label = cv2.imread(self.get_item_path(timestamp, "label"))
+        label = np.load(self.get_item_path(timestamp, "label"))["arr_0"]
+
+        assert irc is not None, "Could not load irc for timestamp {}".format(timestamp)
+        assert label is not None, "Could not load label for timestamp {}".format(
+            timestamp
+        )
 
         return {"id": index, "timestamp": timestamp, "irc": irc, "label": label}
 
@@ -34,7 +37,6 @@ class CloudDataset(Dataset):
         return os.path.join(
             self.dataset_root,
             self.split,
-            "images",
             timestamp[:8],
             "{}_{}".format(timestamp, modality_suffix[modality]),
         )
@@ -46,4 +48,4 @@ if __name__ == "__main__":
     )
     print(dataset.timestamps)
     print(len(dataset))
-    print(dataset[1])
+    print(dataset[1]["label"])

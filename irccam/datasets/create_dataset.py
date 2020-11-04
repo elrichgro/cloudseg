@@ -75,7 +75,7 @@ def process_day_data(day, dataset_name, subset, offset):
 
         # save if all filtering was OK
         if vis_img is not None and irccam_img is not None:
-            img_path = os.path.join(img_dir, "images", day)
+            img_path = os.path.join(img_dir, day)
             if not os.path.exists(img_path):
                 os.makedirs(img_path)
 
