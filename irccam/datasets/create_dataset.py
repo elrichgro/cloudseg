@@ -168,27 +168,27 @@ def vis_to_irccam_timestamp(timestamp):
     return ir_ts
 
 
-"""
-TODO:
-this function currently reads raw irccam data and then maps to rgb range 
-by taking the min and max values in the image. This is wrong though, because
-it uses a different range for each image.
-
-We should instead figure out what are suitable min and max ir values to use
-over all these images. Then for each one we cap at those min and max
-values and map to grayscale range.
-
-Using 16 bit tif instead of rgb, to prevent data loss on images with outlying pixels, should rethink this too
-Set the actual image to 0-60000. reserve completly white for the mask
-"""
-
-
 def normalize_irccam_image(img_ir_raw):
-    mi = np.nanmin(img_ir_raw)
-    ma = np.nanmax(img_ir_raw)
+    """
+    TODO:
+    Find appropriate min and max temperature thresholds for IRCCAM data. The threshold
+    is to remove outliers.
+
+    Using 16 bit tif instead of rgb, to prevent data loss on images with outlying 
+    pixels, should rethink this too.
+    Set the actual image to 0-60000. reserve completly white for the mask
+    """
+    # Threshold to remove outliers
+    ir_threshold = (-80.0, 30.0)
+    mi = ir_threshold[0]
+    ma = ir_threshold[1]
+    lower = img_ir_raw < mi
+    higher = img_ir_raw > ma
     gray_ir = img_ir_raw - mi
     gray_ir *= 60000 / (ma - mi)
     np.nan_to_num(gray_ir, copy=False, nan=(2 ** 16 - 1))
+    gray_ir[lower] = 0
+    gray_ir[higher] = 60000
     return gray_ir.astype(np.uint16)
 
 
