@@ -4,6 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+black = "*"
 
 [packages]
 scipy = "*"
@@ -16,8 +17,13 @@ matplotlib = "*"
 opencv-contrib-python = "*"
 opencv-python = "*"
 traitlets = "*"
-datasets = "*"
-scikit-image= "0.17.1"
+ipython = "*"
+torch = "*"
+torchvision = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.6"
+
+[pipenv]
+allow_prereleases = true

@@ -9,9 +9,9 @@ import os
 import cv2
 import numpy as np
 
-PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../..')
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, 'data/raw/davos')
-DATASET_PATH = os.path.join(PROJECT_PATH, 'data/datasets')
+PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
+RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
+DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
 
 
 def create_rgb_label(image, cloud_ref=2.15):
@@ -30,8 +30,14 @@ def create_rgb_label(image, cloud_ref=2.15):
     image[:, :, 1][zeros] = 1
     image[:, :, 2][zeros] = 1
 
-    rat = image[:, :, 0] / image[:, :, 2] + image[:, :, 0] / image[:, :, 1];
-    rat[zeros] = float('inf')
+    rat = image[:, :, 0] / image[:, :, 2] + image[:, :, 0] / image[:, :, 1]
+    rat[zeros] = float("inf")
 
-    cloud = rat < cloud_ref
+    cloud = np.array(rat < cloud_ref, dtype=np.uint8)
     return cloud
+
+
+def create_label_image(labels):
+    img = np.zeros(labels.shape, dtype=np.uint8)
+    img[np.where(labels)] = 255
+    return img
