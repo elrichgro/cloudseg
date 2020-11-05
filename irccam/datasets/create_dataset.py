@@ -80,7 +80,7 @@ def create_set(subset, timestamps, dataset_name):
     assert subset in ("train", "val", "test")
     print("Creating {} set".format(subset))
     count = 0
-    for timestamp in tqdm(timestamps[:100]):
+    for timestamp in tqdm(timestamps):
         count += process_timestamp(timestamp, dataset_name, subset)
     print("{} datapoints in {} set".format(count, subset))
 
