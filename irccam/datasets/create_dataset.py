@@ -8,16 +8,17 @@ individually. This makes this script a lot faster and easier to tweak and
 experiment with. 
 
 Basic flow:
-- For each day of rgb data:
-    - Read all timestamps,
-    - Get irccam image corresponding to timestamp, preprocess and save
-    - Get rgb image for timestamp, preprocess, create label, and save
-    - Filter out black and ignored images
+- Split into train, val, test sets by day
+- Get all timestamps for each set
+- For each timestamp:
+    - Get ir image, RGB image
+    - Preprocess
+    - Create label
+    - Save files
 
 Still to do:
 - Fix irccam processing (see todo note below)
 - rgb image horizon mask (currently parts of horizon get marked as clouds)
-- Split into train, val, and test folders (currently just stored as one set)
 
 Considerations:
 - Save images as numpy array instead of as images to make life easier/more uniform for import/export
@@ -79,14 +80,12 @@ def create_set(subset, timestamps, dataset_name):
     assert subset in ("train", "val", "test")
     print("Creating {} set".format(subset))
     count = 0
-    for timestamp in tqdm(timestamps):
+    for timestamp in tqdm(timestamps[:100]):
         count += process_timestamp(timestamp, dataset_name, subset)
     print("{} datapoints in {} set".format(count, subset))
 
 
 def process_timestamp(timestamp, dataset_name, subset):
-    img_dir = os.path.join(DATASET_PATH, dataset_name, subset)
-
     irccam_raw = get_irccam_data(timestamp)
     irccam_img = process_irccam_img(irccam_raw)
 
@@ -97,30 +96,35 @@ def process_timestamp(timestamp, dataset_name, subset):
     if vis_img is None or irccam_img is None:
         return False
 
-    img_path = os.path.join(img_dir, timestamp[:8])
-    if not os.path.exists(img_path):
-        os.makedirs(img_path)
-
-    irccam_img_filename = os.path.join(img_path, "{}_irc.tif".format(timestamp))
-    saved = cv2.imwrite(irccam_img_filename, irccam_img)
-    if not saved:
-        raise Exception("Failed to save image {}".format(irccam_img_filename))
-    vis_img_filename = os.path.join(img_path, "{}_vis.tif".format(timestamp))
-    saved = cv2.imwrite(vis_img_filename, vis_img)
-    if not saved:
-        raise Exception("Failed to save image {}".format(vis_img_filename))
-
-    label_filename = os.path.join(img_path, "{}_labels.npz".format(timestamp))
-    label_img_filename = os.path.join(img_path, "{}_labels.tif".format(timestamp))
+    # Create label
     label = create_rgb_label(vis_img)
     label = transform_perspective(label, (irccam_img.shape[0], irccam_img.shape[1]))
     label_image = create_label_image(label)
-    saved = cv2.imwrite(label_img_filename, label_image)
-    if not saved:
-        raise Exception("Failed to save image {}".format(label_img_filename))
-    np.savez(label_filename, label)
+
+    # Create day directory if it doesn't exist yet
+    img_path = os.path.join(DATASET_PATH, dataset_name, subset, timestamp[:8])
+    if not os.path.exists(img_path):
+        os.makedirs(img_path)
+
+    # Save data
+    save_image_to_dataset(irccam_img, img_path, timestamp, "irc")
+    save_image_to_dataset(vis_img, img_path, timestamp, "vis")
+    save_image_to_dataset(label_image, img_path, timestamp, "label")
+    save_array_to_dataset(label, img_path, timestamp, "label")
 
     return True
+
+
+def save_array_to_dataset(data, path, timestamp, extension):
+    filename = os.path.join(path, "{}_{}.npz".format(timestamp, extension))
+    np.savez(filename, data)
+
+
+def save_image_to_dataset(img, path, timestamp, extension):
+    filename = os.path.join(path, "{}_{}.tif".format(timestamp, extension))
+    saved = cv2.imwrite(filename, img)
+    if not saved:
+        raise Exception("Failed to save image {}".format(filename))
 
 
 def get_contained_dirs(path):
