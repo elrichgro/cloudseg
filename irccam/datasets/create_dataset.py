@@ -43,107 +43,84 @@ def create_dataset(dataset_name="dataset_v1", train_val_test_split=[0.6, 0.2, 0.
     assert (
         sum(train_val_test_split) == 1
     ), "Invalid train_val_test_split: must sum to 1."
-    vis_days = np.array(get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb")))
-    vis_days = filter_ignored(vis_days)
-    num_days = len(vis_days)
 
-    rand_idx = np.random.permutation(np.arange(num_days))
-    train_size = round(num_days * train_val_test_split[0])
-    val_size = round(num_days * train_val_test_split[1])
-    test_size = round(num_days * train_val_test_split[2])
-    print(train_size, val_size, test_size)
+    # Split by day to minimize data leak between sets
+    days = valid_days()
+    train_days, val_days, test_days = split_subsets(days, train_val_test_split)
+
+    train_ts = valid_timestamps_for_days(train_days)
+    val_ts = valid_timestamps_for_days(val_days)
+    test_ts = valid_timestamps_for_days(test_days)
+
+    create_set("train", train_ts, dataset_name)
+    create_set("val", val_ts, dataset_name)
+    create_set("test", test_ts, dataset_name)
+
+
+def split_subsets(data, train_val_test_split):
+    size = len(data)
+    rand_idx = np.random.permutation(np.arange(size))
+    train_size = round(size * train_val_test_split[0])
+    val_size = round(size * train_val_test_split[1])
+    test_size = round(size * train_val_test_split[2])
 
     train_idx = rand_idx[:train_size]
     val_idx = rand_idx[train_size : train_size + val_size]
     test_idx = rand_idx[train_size + val_size :]
 
-    train_days = vis_days[train_idx]
-    val_days = vis_days[val_idx]
-    test_days = vis_days[test_idx]
+    train_data = data[train_idx]
+    val_data = data[val_idx]
+    test_data = data[test_idx]
 
-    print("Creating train set")
-    for day in tqdm(train_days):
-        process_day_data(day, dataset_name, "train")
-
-    print("Creating val set")
-    for day in tqdm(val_days):
-        process_day_data(day, dataset_name, "val")
-
-    print("Creating test set")
-    for day in tqdm(test_days):
-        process_day_data(day, dataset_name, "test")
+    return train_data, val_data, test_data
 
 
-# def vis_timestamps_for_day(day):
-#     filenames = [file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")]
-#     timestamps = [filename.replace("_0.jpg", "") for filename in filenames]
-#     return timestamps
-
-# def irccam_timestamps_for_day(day):
-#     filenames = [file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "irccam_extract", day, bt)) if file.endswith(".npz")]
-#     timestamps = [filename.replace(".npz", "") for filename in filenames]
-#     return timestamps
-
-
-def process_day_data(day, dataset_name, subset):
-    # print("Processing {} for {} data".format(day, subset))
-    image_filenames = get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
-    image_filenames = [file for file in image_filenames if file.endswith("_0.jpg")]
-    image_timestamps = [filename.replace("_0.jpg", "") for filename in image_filenames]
-    image_timestamps = filter_ignored(image_timestamps)
-    img_dir = os.path.join(DATASET_PATH, dataset_name, subset)
+def create_set(subset, timestamps, dataset_name):
+    assert subset in ("train", "val", "test")
+    print("Creating {} set".format(subset))
     count = 0
-    image_timestamps.sort()
-    cloud_labels = []
-    for idx, timestamp in enumerate(image_timestamps):
-        # Remove this to process all data
-        if count > 5:
-            break
+    for timestamp in tqdm(timestamps):
+        count += process_timestamp(timestamp, dataset_name, subset)
+    print("{} datapoints in {} set".format(count, subset))
 
-        try:
-            irccam_raw = get_irccam_bt_data(timestamp)
-        except FileNotFoundError:
-            # print("Skipping the rest of the day after {}".format(timestamp))
-            # the irccam data does not exist for this image (sometimes the data is not complete for a day eg. irccam_20180511_rad.mat)
-            continue
-        irccam_img = process_irccam_img(irccam_raw)
 
-        vis_img_raw = get_vis_img(timestamp)
-        vis_img = process_vis_img(vis_img_raw)
+def process_timestamp(timestamp, dataset_name, subset):
+    img_dir = os.path.join(DATASET_PATH, dataset_name, subset)
 
-        # save if all filtering was OK
-        if vis_img is not None and irccam_img is not None:
-            img_path = os.path.join(img_dir, day)
-            if not os.path.exists(img_path):
-                os.makedirs(img_path)
+    irccam_raw = get_irccam_data(timestamp)
+    irccam_img = process_irccam_img(irccam_raw)
 
-            irccam_img_filename = os.path.join(img_path, "{}_irc.tif".format(timestamp))
-            saved = cv2.imwrite(irccam_img_filename, irccam_img)
-            if not saved:
-                raise Exception("Failed to save image {}".format(irccam_img_filename))
-            vis_img_filename = os.path.join(img_path, "{}_vis.tif".format(timestamp))
-            saved = cv2.imwrite(vis_img_filename, vis_img)
-            if not saved:
-                raise Exception("Failed to save image {}".format(vis_img_filename))
+    vis_img_raw = get_vis_img(timestamp)
+    vis_img = process_vis_img(vis_img_raw)
 
-            label_filename = os.path.join(img_path, "{}_labels.npz".format(timestamp))
-            label_img_filename = os.path.join(
-                img_path, "{}_labels.tif".format(timestamp)
-            )
-            label = create_rgb_label(vis_img)
-            label = transform_perspective(
-                label, (irccam_img.shape[0], irccam_img.shape[1])
-            )
-            label_image = create_label_image(label)
-            saved = cv2.imwrite(label_img_filename, label_image)
-            if not saved:
-                raise Exception("Failed to save image {}".format(label_img_filename))
-            np.savez(label_filename, label)
-            count += 1
+    # Ignore if filtered out
+    if vis_img is None or irccam_img is None:
+        return False
 
-    # print("Processed {} images for day {}".format(count, day))
+    img_path = os.path.join(img_dir, timestamp[:8])
+    if not os.path.exists(img_path):
+        os.makedirs(img_path)
 
-    return count
+    irccam_img_filename = os.path.join(img_path, "{}_irc.tif".format(timestamp))
+    saved = cv2.imwrite(irccam_img_filename, irccam_img)
+    if not saved:
+        raise Exception("Failed to save image {}".format(irccam_img_filename))
+    vis_img_filename = os.path.join(img_path, "{}_vis.tif".format(timestamp))
+    saved = cv2.imwrite(vis_img_filename, vis_img)
+    if not saved:
+        raise Exception("Failed to save image {}".format(vis_img_filename))
+
+    label_filename = os.path.join(img_path, "{}_labels.npz".format(timestamp))
+    label_img_filename = os.path.join(img_path, "{}_labels.tif".format(timestamp))
+    label = create_rgb_label(vis_img)
+    label = transform_perspective(label, (irccam_img.shape[0], irccam_img.shape[1]))
+    label_image = create_label_image(label)
+    saved = cv2.imwrite(label_img_filename, label_image)
+    if not saved:
+        raise Exception("Failed to save image {}".format(label_img_filename))
+    np.savez(label_filename, label)
+
+    return True
 
 
 def get_contained_dirs(path):
@@ -211,16 +188,64 @@ def normalize_irccam_image(img_ir_raw):
     return gray_ir.astype(np.uint16)
 
 
-def get_irccam_bt_data(timestamp):
+def get_irccam_data(timestamp, data_type="bt"):
+    assert data_type in ["bt", "img"], "Unrecognized IRCCAM data type: {}".format(
+        data_type
+    )
     ir_ts = vis_to_irccam_timestamp(timestamp)
     filename = os.path.join(
         RAW_DATA_PATH,
         "irccam_extract",
         ir_ts.strftime("%Y%m%d"),
-        "bt",
+        data_type,
         "{}.npz".format(ir_ts.strftime("%Y%m%d%H%M")),
     )
     return np.load(filename)["arr_0"]
+
+
+def valid_timestamps_for_days(days):
+    return np.concatenate([valid_timestamps_for_day(day) for day in days])
+
+
+def valid_timestamps_for_day(day):
+    vis_ts = vis_timestamps_for_day(day)
+    ir_ts = irccam_timestamps_for_day(day)
+    ts = filter_ignored(np.intersect1d(vis_ts, ir_ts))
+    return ts
+
+
+def valid_days():
+    vis_days = np.array(get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb")))
+    ir_days = np.array(
+        get_contained_dirs(os.path.join(RAW_DATA_PATH, "irccam_extract"))
+    )
+    days = filter_ignored(np.intersect1d(vis_days, ir_days))
+    return days
+
+
+def vis_timestamps_for_day(day):
+    filenames = [
+        file
+        for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
+        if file.endswith("_0.jpg")
+    ]
+    timestamps = [filename.replace("_0.jpg", "") for filename in filenames]
+    return np.array(timestamps)
+
+
+def irccam_timestamps_for_day(day, data_type="bt"):
+    assert data_type in ["bt", "img"], "Unrecognized IRCCAM data type: {}".format(
+        data_type
+    )
+    filenames = [
+        file
+        for file in get_contained_files(
+            os.path.join(RAW_DATA_PATH, "irccam_extract", day, data_type)
+        )
+        if file.endswith(".npz")
+    ]
+    timestamps = [filename.replace(".npz", "") + "00" for filename in filenames]
+    return np.array(timestamps)
 
 
 def get_vis_img(timestamp):
