@@ -158,7 +158,7 @@ def process_vis_img(img):
     processed_vis = cv2.resize(img, (640, 480))
     processed_vis = processed_vis[50:470, 105:525]
     processed_vis = cv2.flip(processed_vis, 1)
-    processed_vis = rotate_image(processed_vis, -120)
+    processed_vis = rotate_image(processed_vis, -130)
     return processed_vis
 
 
@@ -174,7 +174,7 @@ def normalize_irccam_image(img_ir_raw):
     Find appropriate min and max temperature thresholds for IRCCAM data. The threshold
     is to remove outliers.
 
-    Using 16 bit tif instead of rgb, to prevent data loss on images with outlying 
+    Using 16 bit tif instead of rgb, to prevent data loss on images with outlying
     pixels, should rethink this too.
     Set the actual image to 0-60000. reserve completly white for the mask
     """
