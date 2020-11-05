@@ -16,6 +16,8 @@ matplotlib = "*"
 opencv-contrib-python = "*"
 opencv-python = "*"
 traitlets = "*"
+datasets = "*"
+scikit-image= "0.17.1"
 
 [requires]
 python_version = "3.6"
