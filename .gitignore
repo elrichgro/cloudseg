@@ -132,10 +132,13 @@ dmypy.json
 /data/**/*.jpg
 /data/**/*.mat
 /data/**/*.npz
+/data/**/*.npy
+/data/**/*.txt
 /data/**/*.tif
 /data/**/*.zip
 /data/**/*.html*
 dsl-data/*
+
 
 # Pycharm junk
 .idea
