@@ -17,6 +17,9 @@ import math
 import datetime
 from tqdm import tqdm
 import time
+import cv2
+
+from datasets.image_processing import process_irccam_img
 
 PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
 RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
@@ -44,11 +47,14 @@ def extract_data(file=None):
 
         bt_path = os.path.join(extract_path, day, "bt")
         img_path = os.path.join(extract_path, day, "img")
+        jpg_path = os.path.join(extract_path, day, "jpg")
 
         if not os.path.exists(bt_path):
             os.makedirs(bt_path)
         if not os.path.exists(img_path):
             os.makedirs(img_path)
+        if not os.path.exists(jpg_path):
+            os.makedirs(jpg_path)
         print("saving BT")
         for i in tqdm(range(0, irccam_data["BT"].shape[2])):
             timestamp = convert_timestamp(day, irccam_data["TM"][i])
@@ -59,6 +65,15 @@ def extract_data(file=None):
             timestamp = convert_timestamp(day, irccam_data["TM"][i])
             filename = os.path.join(img_path, "{}.npy".format(timestamp))
             np.save(filename, irccam_data["img"][:, :, i])
+        # Save jpg so that we can inspect which timestamps to filter out.
+        print("saving jpg")
+        for i in tqdm(range(0, irccam_data["img"].shape[2])):
+            timestamp = convert_timestamp(day, irccam_data["TM"][i])
+            filename = os.path.join(jpg_path, "{}.jpg".format(timestamp))
+            img_data = np.array(irccam_data["BT"][:, :, i])
+            img = process_irccam_img(img_data, dtype=np.uint8)
+            saved = cv2.imwrite(filename, img)
+            assert saved, "Failed to save {}".format(filename)
 
         irccam_data = None  # don't know what worked...but at some point python started releasing memory on time
         save_completed(day)
