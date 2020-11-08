@@ -76,7 +76,8 @@ def extract_data(file=None):
             assert saved, "Failed to save {}".format(filename)
 
         irccam_data = None  # don't know what worked...but at some point python started releasing memory on time
-        save_completed(day)
+        if not has_completed(day):
+            save_completed(day)
 
 
 def get_completed_filename():
