@@ -31,6 +31,7 @@ import datetime
 import cv2
 import numpy as np
 from tqdm import tqdm
+import glob
 
 from datasets.dataset_filter import is_almost_black, filter_ignored
 from datasets.rgb_labeling import create_rgb_label, create_label_image
@@ -116,8 +117,8 @@ def process_timestamp(timestamp, dataset_name, subset):
 
 
 def save_array_to_dataset(data, path, timestamp, extension):
-    filename = os.path.join(path, "{}_{}.npz".format(timestamp, extension))
-    np.savez(filename, data)
+    filename = os.path.join(path, "{}_{}.npy".format(timestamp, extension))
+    np.save(filename, data)
 
 
 def save_image_to_dataset(img, path, timestamp, extension):
@@ -162,12 +163,6 @@ def process_vis_img(img):
     return processed_vis
 
 
-def vis_to_irccam_timestamp(timestamp):
-    vis_ts = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
-    ir_ts = vis_ts
-    return ir_ts
-
-
 def normalize_irccam_image(img_ir_raw):
     """
     TODO:
@@ -196,15 +191,20 @@ def get_irccam_data(timestamp, data_type="bt"):
     assert data_type in ["bt", "img"], "Unrecognized IRCCAM data type: {}".format(
         data_type
     )
-    ir_ts = vis_to_irccam_timestamp(timestamp)
-    filename = os.path.join(
-        RAW_DATA_PATH,
-        "irccam_extract",
-        ir_ts.strftime("%Y%m%d"),
-        data_type,
-        "{}.npz".format(ir_ts.strftime("%Y%m%d%H%M")),
+    ts = datetime.datetime.strptime(timestamp[:-2], "%Y%m%d%H%M")
+    filename = glob.glob(
+        os.path.join(
+            RAW_DATA_PATH,
+            "irccam_extract",
+            ts.strftime("%Y%m%d"),
+            data_type,
+            "{}*.npy".format(ts.strftime("%Y%m%d%H%M")),
+        )
     )
-    return np.load(filename)["arr_0"]
+    assert len(filename) > 0, "No IRCCAM {} file found for {}".format(
+        data_type, timestamp
+    )
+    return np.load(filename[0])
 
 
 def valid_timestamps_for_days(days):
@@ -246,9 +246,9 @@ def irccam_timestamps_for_day(day, data_type="bt"):
         for file in get_contained_files(
             os.path.join(RAW_DATA_PATH, "irccam_extract", day, data_type)
         )
-        if file.endswith(".npz")
+        if file.endswith(".npy")
     ]
-    timestamps = [filename.replace(".npz", "") + "00" for filename in filenames]
+    timestamps = [filename[:-6] + "00" for filename in filenames]
     return np.array(timestamps)
 
 
