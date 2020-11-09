@@ -37,10 +37,7 @@ from datasets.dataset_filter import is_almost_black, filter_ignored
 from datasets.rgb_labeling import create_rgb_label, create_label_image
 from datasets.image_processing import process_irccam_img, process_vis_img
 from datasets.filesystem import get_contained_dirs, get_contained_files
-
-PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
-DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
+from irccam.utils.definitions import *
 
 
 def create_dataset(dataset_name="dataset_v1", train_val_test_split=[0.6, 0.2, 0.2]):

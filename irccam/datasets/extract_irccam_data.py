@@ -22,8 +22,7 @@ import cv2
 from datasets.image_processing import process_irccam_img
 from datasets.filesystem import get_contained_files
 
-PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
+from irccam.utils.definitions import *
 
 
 def extract_data(file=None):

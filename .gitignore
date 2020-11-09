@@ -149,3 +149,6 @@ dsl-data/*
 
 # Pipfile lock
 Pipfile.lock
+
+# Training logs
+lightning_logs

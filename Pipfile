@@ -23,6 +23,7 @@ torch = "*"
 torchvision = "*"
 tqdm = "*"
 pytorch-lightning = "*"
+argparse = "*"
 
 [requires]
 python_version = "3.6"
