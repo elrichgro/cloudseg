@@ -22,6 +22,7 @@ ipython = "*"
 torch = "*"
 torchvision = "*"
 tqdm = "*"
+pytorch-lightning = "*"
 
 [requires]
 python_version = "3.6"

@@ -36,6 +36,7 @@ import glob
 from datasets.dataset_filter import is_almost_black, filter_ignored
 from datasets.rgb_labeling import create_rgb_label, create_label_image
 from datasets.image_processing import process_irccam_img, process_vis_img
+from datasets.filesystem import get_contained_dirs, get_contained_files
 
 PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
 RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
@@ -127,14 +128,6 @@ def save_image_to_dataset(img, path, timestamp, extension):
     saved = cv2.imwrite(filename, img)
     if not saved:
         raise Exception("Failed to save image {}".format(filename))
-
-
-def get_contained_dirs(path):
-    return [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
-
-
-def get_contained_files(path):
-    return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
 
 def get_irccam_data(timestamp, data_type="bt"):

@@ -20,6 +20,7 @@ import time
 import cv2
 
 from datasets.image_processing import process_irccam_img
+from datasets.filesystem import get_contained_files
 
 PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
 RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
@@ -97,10 +98,6 @@ def has_completed(day):
 def save_completed(day):
     with open(get_completed_filename(), "a") as f:
         f.write(day + "\n")
-
-
-def get_contained_files(path):
-    return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
 
 def convert_timestamp(day, timestamp):

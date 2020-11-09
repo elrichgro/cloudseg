@@ -146,3 +146,6 @@ dsl-data/*
 
 # VSCode junk
 .vscode/
+
+# Pipfile lock
+Pipfile.lock
