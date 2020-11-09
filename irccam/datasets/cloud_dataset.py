@@ -6,11 +6,12 @@ import numpy as np
 
 
 class CloudDataset(Dataset):
-    def __init__(self, dataset_root, split):
+    def __init__(self, dataset_root, split, transform=None):
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
         self.dataset_root = dataset_root
         self.split = split
+        self.transform = transform
         self.timestamps = [
             file.replace("_irc.tif", "").split("/")[-1]
             for file in glob(os.path.join(dataset_root, split, "**/*_irc.tif"))
@@ -23,7 +24,12 @@ class CloudDataset(Dataset):
         timestamp = self.timestamps[index]
 
         irc = cv2.imread(self.get_item_path(timestamp, "irc"))
-        label = np.load(self.get_item_path(timestamp, "label"))["arr_0"]
+        irc = cv2.cvtColor(irc, cv2.COLOR_BGR2GRAY)
+        label = np.load(self.get_item_path(timestamp, "label")).astype(np.long)
+
+        if self.transform:
+            irc = self.transform(irc)
+            label = self.transform(label)
 
         assert irc is not None, "Could not load irc for timestamp {}".format(timestamp)
         assert label is not None, "Could not load label for timestamp {}".format(
@@ -33,7 +39,7 @@ class CloudDataset(Dataset):
         return {"id": index, "timestamp": timestamp, "irc": irc, "label": label}
 
     def get_item_path(self, timestamp, modality):
-        modality_suffix = {"label": "labels.npz", "irc": "irc.tif"}
+        modality_suffix = {"label": "label.npy", "irc": "irc.tif"}
         return os.path.join(
             self.dataset_root,
             self.split,

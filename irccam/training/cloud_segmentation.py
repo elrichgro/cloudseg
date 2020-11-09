@@ -1,6 +1,7 @@
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
+from torchvision import transforms
 import os
 
 from irccam.datasets.cloud_dataset import CloudDataset
@@ -12,9 +13,14 @@ class CloudSegmentation(pl.LightningModule):
     def __init__(self, args):
         super(CloudSegmentation, self).__init__()
         self.args = args
-        self.dataset_train = CloudDataset(args.dataset_root, "train")
-        self.dataset_val = CloudDataset(args.dataset_root, "val")
-        self.dataset_test = CloudDataset(args.dataset_root, "test")
+        trans = transforms.Compose(
+            [
+                transforms.ToTensor(),
+            ]
+        )
+        self.dataset_train = CloudDataset(args.dataset_root, "train", trans)
+        self.dataset_val = CloudDataset(args.dataset_root, "val", trans)
+        self.dataset_test = CloudDataset(args.dataset_root, "test", trans)
 
         self.model = get_model(args.model_name, args)
 
@@ -38,6 +44,7 @@ class CloudSegmentation(pl.LightningModule):
         batch_labels = batch["label"].squeeze(1)
 
         pred_labels = self.model(batch_input)
+        print(pred_labels, batch_labels)
 
         loss = self.cross_entropy_loss(pred_labels, batch_labels)
         self.log("val_loss", loss)
