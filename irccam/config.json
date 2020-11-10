@@ -1,0 +1,8 @@
+{
+  "batch_size": 4,
+  "batch_size_val": 8,
+  "num_epochs": 16,
+  "model_name": "unet",
+  "dataset_root": "dataset_v1",
+  "learning_rate": 0.01
+}

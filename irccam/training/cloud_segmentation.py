@@ -44,7 +44,6 @@ class CloudSegmentation(pl.LightningModule):
         batch_labels = batch["label"].squeeze(1)
 
         pred_labels = self.model(batch_input)
-        print(pred_labels, batch_labels)
 
         loss = self.cross_entropy_loss(pred_labels, batch_labels)
         self.log("val_loss", loss)

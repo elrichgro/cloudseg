@@ -1,14 +1,15 @@
 import torch
 from pytorch_lightning import Trainer
-from argparse import Namespace
+import argparse
 import os
+import json
 
 from irccam.training.cloud_segmentation import CloudSegmentation
 from irccam.utils.definitions import *
 
 
-def train(args):
-    model = CloudSegmentation(args)
+def train(config):
+    model = CloudSegmentation(config)
 
     # TODO: callbacks, logging
     trainer = Trainer(
@@ -24,13 +25,24 @@ def train(args):
     trainer.test(model)
 
 
+def get_config(config_file):
+    with open(config_file) as f:
+        config = json.load(f)
+    if not os.path.isdir(config["dataset_root"]):
+        config["dataset_root"] = os.path.join(DATASET_PATH, config["dataset_root"])
+    return argparse.Namespace(**config)
+
+
 if __name__ == "__main__":
-    args = {
-        "batch_size": 4,
-        "batch_size_val": 8,
-        "num_epochs": 16,
-        "model_name": "unet",
-        "dataset_root": os.path.join(DATASET_PATH, "dataset_v1"),
-        "learning_rate": 0.01,
-    }
-    train(Namespace(**args))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--config",
+        default=None,
+        required=True,
+        type=str,
+        help="config file path (default: None)",
+    )
+    args = parser.parse_args()
+    config = get_config(args.config)
+    train(config)
