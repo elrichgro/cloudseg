@@ -3,6 +3,9 @@ from pytorch_lightning import Trainer
 import argparse
 import os
 import json
+from pytorch_lightning.loggers import TestTubeLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
+import datetime
 
 from irccam.training.cloud_segmentation import CloudSegmentation
 from irccam.utils.definitions import *
@@ -11,13 +14,30 @@ from irccam.utils.definitions import *
 def train(config):
     model = CloudSegmentation(config)
 
-    # TODO: callbacks, logging
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    logger = TestTubeLogger(
+        save_dir=os.path.join(
+            PROJECT_PATH,
+            "training_logs",
+            "{}-{}".format(timestamp, config.experiment_name),
+        ),
+        name="tube_logs",
+        version=0,
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        save_last=True,
+        save_top_k=1,
+        verbose=True,
+        monitor="val_iou",
+        mode="max",
+        prefix="",
+    )
+
     trainer = Trainer(
-        # logger=logger,
-        # checkpoint_callback = checkpoint_callback,
-        gpus="-1"
-        if torch.cuda.is_available()
-        else None,
+        logger=logger,
+        checkpoint_callback=checkpoint_callback,
+        gpus="-1" if torch.cuda.is_available() else None,
     )
 
     trainer.fit(model)

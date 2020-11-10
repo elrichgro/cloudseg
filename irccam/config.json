@@ -4,5 +4,6 @@
   "num_epochs": 16,
   "model_name": "unet",
   "dataset_root": "dataset_v1",
-  "learning_rate": 0.01
+  "learning_rate": 0.01,
+  "experiment_name": "test-experiment"
 }

@@ -152,3 +152,4 @@ Pipfile.lock
 
 # Training logs
 lightning_logs
+training_logs

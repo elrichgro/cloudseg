@@ -1,8 +1,10 @@
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
+import torch
 from torchvision import transforms
 import os
+from pytorch_lightning.metrics.functional.classification import iou
 
 from irccam.datasets.cloud_dataset import CloudDataset
 from irccam.models.helpers import get_model
@@ -43,10 +45,16 @@ class CloudSegmentation(pl.LightningModule):
         batch_input = batch["irc"]
         batch_labels = batch["label"].squeeze(1)
 
-        pred_labels = self.model(batch_input)
+        preds = self.model(batch_input)
 
-        loss = self.cross_entropy_loss(pred_labels, batch_labels)
+        loss = self.cross_entropy_loss(preds, batch_labels)
         self.log("val_loss", loss)
+
+        return {"preds": preds, "labels": batch_labels}
+
+    def validation_step_end(self, outputs):
+        val_iou = iou(torch.argmax(outputs["preds"], 1), outputs["labels"])
+        self.log("val_iou", val_iou)
 
     def test_step(self, batch, batch_idx):
         batch_input = batch["irc"]
