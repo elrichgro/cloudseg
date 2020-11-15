@@ -1,7 +1,6 @@
 import torch
 from pytorch_lightning import Trainer
 import argparse
-import os
 import json
 from pytorch_lightning.loggers import TestTubeLogger
 from pytorch_lightning.callbacks import ModelCheckpoint

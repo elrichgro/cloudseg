@@ -1,14 +1,11 @@
 import pytorch_lightning as pl
-import torch
 from torch.utils.data import DataLoader
 import torch
 from torchvision import transforms
-import os
 from pytorch_lightning.metrics.functional.classification import iou
 
 from irccam.datasets.cloud_dataset import CloudDataset
 from irccam.models.helpers import get_model
-from irccam.models.unet import UNet
 
 
 class CloudSegmentation(pl.LightningModule):

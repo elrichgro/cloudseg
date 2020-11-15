@@ -1,8 +1,15 @@
 from torch.utils.data import Dataset
 import cv2
 import os
-from glob import glob
+import h5py
 import numpy as np
+from bisect import bisect_right
+
+"""
+Implemented the dataset from daily H5 files
+
+Inspiration https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f5
+"""
 
 
 class CloudDataset(Dataset):
@@ -12,10 +19,8 @@ class CloudDataset(Dataset):
         self.dataset_root = dataset_root
         self.split = split
         self.transform = transform
-        self.timestamps = [
-            file.replace("_irc.tif", "").split("/")[-1]
-            for file in glob(os.path.join(dataset_root, split, "**/*_irc.tif"))
-        ]
+        self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
+        self.files
 
     def __len__(self):
         return len(self.timestamps)
@@ -48,10 +53,66 @@ class CloudDataset(Dataset):
         )
 
 
+class HDF5Dataset(Dataset):
+    """Represents an abstract HDF5 dataset.
+
+    Input params
+        data_cache_size: Number of HDF5 files that can be cached in the cache (default=3).
+        transform: PyTorch transform to apply to every data instance (default=None).
+    """
+
+    def __init__(self, dataset_root, split, transform=None):
+        super().__init__()
+        assert split in ["train", "val", "test"], "Invalid split {}".format(split)
+
+        self.dataset_root = dataset_root
+        self.split = split
+        self.transform = transform
+        self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
+
+        self.data_info = []
+        self.transform = transform
+        self.length = 0
+        self.offsets = []
+
+        self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
+        for h5dataset_fp in self.files:
+            self._add_data_infos(h5dataset_fp)
+
+    def __getitem__(self, index):
+        timestamp, irc, label = self.get_data(index)
+
+        if self.transform:
+            irc = self.transform(irc)
+            label = self.transform(label)
+
+        return {"index": index, "timestamp": timestamp, "irc": irc, "label": label}
+
+    def __len__(self):
+        return self.length
+
+    def _add_data_infos(self, file_path):
+        with h5py.File(file_path) as h5_file:
+            size = h5_file['timestamp'].shape[0]
+            self.offsets.append(self.length)
+            self.length += size
+
+    def get_data_infos(self, type):
+        data_info_type = [di for di in self.data_info if di['type'] == type]
+        return data_info_type
+
+    def get_data(self, index):
+        file_index = bisect_right(self.offsets, index) - 1
+        file_offset = self.offsets[file_index]
+        i = index - file_offset
+        with h5py.File(self.files[file_index]) as h5_file:
+            return h5_file["timestamp"][i], h5_file["irc"][i], h5_file["labels1"][i]
+
+
 if __name__ == "__main__":
-    dataset = CloudDataset(
-        "/Users/elrich/code/eth/irccam-pmodwrc/data/datasets/dataset_v1", "train"
+    dataset = HDF5Dataset(
+        "../../data/datasets/dataset_v1", "train"
     )
-    print(dataset.timestamps)
+    print(dataset.days)
     print(len(dataset))
-    print(dataset[1]["label"])
+    print(dataset[23]["timestamp"])

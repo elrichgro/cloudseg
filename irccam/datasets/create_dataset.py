@@ -31,6 +31,8 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 from pytz import timezone
 
+from sklearn.model_selection import train_test_split
+
 from datasets.filesystem import get_contained_dirs, get_contained_files
 from irccam.datasets.image_processing import process_irccam_img, process_vis_img
 from irccam.datasets.dataset_filter import filter_sun, filter_ignored_days
@@ -41,7 +43,9 @@ from irccam.utils.definitions import *
 tz = timezone("Europe/Zurich")
 
 
-def create_dataset(dataset_name="dataset_v1"):
+def create_dataset(dataset_name="dataset_v1", sizes=(0.6, 0.2, 0.2)):
+    assert sum(sizes) == 1, "Split sizes to not sum up to 1"
+
     print("Creating dataset")
     days = valid_days()
 
@@ -49,6 +53,14 @@ def create_dataset(dataset_name="dataset_v1"):
     path = os.path.join(DATASET_PATH, dataset_name)
     if not os.path.exists(path):
         os.makedirs(path)
+
+        # Save splits
+    train, test, val = sizes
+    days_train, days_testval = train_test_split(days, test_size=test + val, train_size=train)
+    days_val, days_test = train_test_split(days_testval, test_size=test / (test + val), train_size=val / (test + val))
+    np.savetxt(os.path.join(path, "train.txt"), days_train, fmt="%s")
+    np.savetxt(os.path.join(path, "test.txt"), days_test, fmt="%s")
+    np.savetxt(os.path.join(path, "val.txt"), days_val, fmt="%s")
 
     for i, day in enumerate(days):
         print("Processing day {} - {}/{}".format(day, i + 1, len(days)))
@@ -59,6 +71,8 @@ def process_day(day, dataset_name):
     # create output directory
     data_path = os.path.join(DATASET_PATH, dataset_name)
     data_filename = os.path.join(data_path, "{}.h5".format(day))
+    if os.path.exists(data_filename):
+        return
 
     previews_path = os.path.join(data_path, "previews")
     preview_filename = os.path.join(previews_path, "{}_preview.mp4".format(day))
@@ -72,8 +86,10 @@ def process_day(day, dataset_name):
 
         matching_timestamps = match_timestamps(irc_timestamps, vis_timestamps)
         filtered_timestamps = filter_sun(matching_timestamps, day)
-
         n = len(filtered_timestamps)
+        if n == 0:
+            return False
+
         timestamps = []
         vis_images = np.empty((n, 420, 420, 3), dtype="float32")
         irc_images = np.empty((n, 420, 420), dtype="float32")
@@ -124,7 +140,7 @@ def process_day(day, dataset_name):
             fw.create_dataset("labels2", data=labels2, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("labels3", data=labels3, chunks=(1, 420, 420), compression="lzf")
 
-    return True
+        return True
 
 
 def save_arrays_to_dataset(data, path, timestamp):
