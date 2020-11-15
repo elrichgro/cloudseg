@@ -2,11 +2,6 @@
 Take the raw IRCCAM data and RGB data and create train, val, and test sets
 for model training. 
 
-This requires the `extract_irccam_data.py` script to have been run already. That
-script reads the huge matlab file and stores the data for each image 
-individually. This makes this script a lot faster and easier to tweak and 
-experiment with. 
-
 Basic flow:
 - Split into train, val, test sets by day
 - Get all timestamps for each set
@@ -25,177 +20,198 @@ Considerations:
 - irccam data is between approx. -500 and 60, although most images at between -60, 60. What kind of grayscale to user?
 """
 
-import os
-import mat73
-import datetime
 import cv2
+import math
 import numpy as np
-from tqdm import tqdm
-import glob
+import h5py
 
-from datasets.dataset_filter import is_almost_black, filter_ignored
-from datasets.rgb_labeling import create_rgb_label, create_label_image
-from datasets.image_processing import process_irccam_img, process_vis_img
+from tqdm import tqdm
+from bisect import bisect_left
+
+from datetime import datetime, timedelta
+from pytz import timezone
+
 from datasets.filesystem import get_contained_dirs, get_contained_files
+from irccam.datasets.image_processing import process_irccam_img, process_vis_img
+from irccam.datasets.dataset_filter import filter_sun, filter_ignored_days
+from irccam.datasets.rgb_labeling import create_rgb_label_julian
+
 from irccam.utils.definitions import *
 
+tz = timezone("Europe/Zurich")
 
-def create_dataset(dataset_name="dataset_v1", train_val_test_split=[0.6, 0.2, 0.2]):
-    assert (
-        sum(train_val_test_split) == 1
-    ), "Invalid train_val_test_split: must sum to 1."
 
-    # Split by day to minimize data leak between sets
+def create_dataset(dataset_name="dataset_v1"):
+    print("Creating dataset")
     days = valid_days()
-    train_days, val_days, test_days = split_subsets(days, train_val_test_split)
 
-    train_ts = valid_timestamps_for_days(train_days)
-    val_ts = valid_timestamps_for_days(val_days)
-    test_ts = valid_timestamps_for_days(test_days)
+    # Create data directory if it doesn't exist yet
+    path = os.path.join(DATASET_PATH, dataset_name)
+    if not os.path.exists(path):
+        os.makedirs(path)
 
-    create_set("train", train_ts, dataset_name)
-    create_set("val", val_ts, dataset_name)
-    create_set("test", test_ts, dataset_name)
-
-
-def split_subsets(data, train_val_test_split):
-    size = len(data)
-    rand_idx = np.random.permutation(np.arange(size))
-    train_size = round(size * train_val_test_split[0])
-    val_size = round(size * train_val_test_split[1])
-    test_size = round(size * train_val_test_split[2])
-
-    train_idx = rand_idx[:train_size]
-    val_idx = rand_idx[train_size : train_size + val_size]
-    test_idx = rand_idx[train_size + val_size :]
-
-    train_data = data[train_idx]
-    val_data = data[val_idx]
-    test_data = data[test_idx]
-
-    return train_data, val_data, test_data
+    for i, day in enumerate(days):
+        print("Processing day {} - {}/{}".format(day, i + 1, len(days)))
+        process_day(day, dataset_name)
 
 
-def create_set(subset, timestamps, dataset_name):
-    assert subset in ("train", "val", "test")
-    print("Creating {} set".format(subset))
-    count = 0
-    for timestamp in tqdm(timestamps):
-        count += process_timestamp(timestamp, dataset_name, subset)
-    print("{} datapoints in {} set".format(count, subset))
+def process_day(day, dataset_name):
+    # create output directory
+    data_path = os.path.join(DATASET_PATH, dataset_name)
+    data_filename = os.path.join(data_path, "{}.h5".format(day))
 
+    previews_path = os.path.join(data_path, "previews")
+    preview_filename = os.path.join(previews_path, "{}_preview.mp4".format(day))
+    if not os.path.exists(previews_path):
+        os.makedirs(previews_path)
 
-def process_timestamp(timestamp, dataset_name, subset):
-    irccam_raw = get_irccam_data(timestamp)
-    irccam_img = process_irccam_img(irccam_raw)
+    with h5py.File(os.path.join(RAW_DATA_PATH, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
+        irc_raw = fr["BT"]
+        irc_timestamps = get_irc_timestamps(day, fr)
+        vis_timestamps = get_vis_timestamps(day)
 
-    vis_img_raw = get_vis_img(timestamp)
-    vis_img = process_vis_img(vis_img_raw)
+        matching_timestamps = match_timestamps(irc_timestamps, vis_timestamps)
+        filtered_timestamps = filter_sun(matching_timestamps, day)
 
-    # Ignore if filtered out
-    if vis_img is None or irccam_img is None:
-        return False
+        n = len(filtered_timestamps)
+        timestamps = []
+        vis_images = np.empty((n, 420, 420, 3), dtype="float32")
+        irc_images = np.empty((n, 420, 420), dtype="float32")
+        labels1 = np.empty((n, 420, 420), dtype="bool")
+        labels2 = np.empty((n, 420, 420), dtype="bool")
+        labels3 = np.empty((n, 420, 420), dtype="bool")
 
-    # Create label
-    label = create_rgb_label(vis_img)
-    label = transform_perspective(label, (irccam_img.shape[0], irccam_img.shape[1]))
-    label_image = create_label_image(label)
+        # We'll output a preview video
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
+        video_out = cv2.VideoWriter(preview_filename, fourcc, 30.0, (2100, 420))
 
-    # Create day directory if it doesn't exist yet
-    img_path = os.path.join(DATASET_PATH, dataset_name, subset, timestamp[:8])
-    if not os.path.exists(img_path):
-        os.makedirs(img_path)
+        print("Processing images")
+        for i, (vis_ts, (irc_ts, irc_idx)) in enumerate(tqdm(filtered_timestamps)):
+            # lets just keep one timestamp, time sync will have to be done in this file anyway
+            timestamps.append(irc_ts.strftime(TIMESTAMP_FORMAT))
 
-    # Save data
-    save_image_to_dataset(irccam_img, img_path, timestamp, "irc")
-    save_image_to_dataset(vis_img, img_path, timestamp, "vis")
-    save_image_to_dataset(label_image, img_path, timestamp, "label")
-    save_array_to_dataset(label, img_path, timestamp, "label")
+            irc_img = irc_raw[irc_idx, :, :]
+            irc_img = process_irccam_img(irc_img)
+            vis_img = get_vis_img(vis_ts)
+            vis_img = process_vis_img(vis_img)
+
+            # Create labels
+            label1 = create_rgb_label_julian(vis_img, cloud_ref=2.35)
+            label1_image = create_label_image(label1)
+            label2 = create_rgb_label_julian(vis_img, cloud_ref=2.7)
+            label2_image = create_label_image(label2)
+            label3 = create_rgb_label_julian(vis_img, cloud_ref=3)
+            label3_image = create_label_image(label3)
+
+            comparison_image = concat_images(irc_img, vis_img, label1_image, label2_image, label3_image)
+            video_out.write(comparison_image)  # Write out frame to video
+            # save_image_to_dataset(comparison_image, previews_path, vis_ts, "preview")
+
+            vis_images[i, :, :, :] = vis_img
+            irc_images[i, :, :] = irc_img
+            labels1[i, :, :] = label1
+            labels2[i, :, :] = label2
+            labels3[i, :, :] = label3
+
+        video_out.release()
+
+        print("Saving data")
+        with h5py.File(data_filename, "w") as fw:
+            fw.create_dataset("timestamp", data=timestamps)
+            fw.create_dataset("irc", data=irc_images, chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
+            fw.create_dataset("labels1", data=labels1, chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("labels2", data=labels2, chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("labels3", data=labels3, chunks=(1, 420, 420), compression="lzf")
 
     return True
 
 
-def save_array_to_dataset(data, path, timestamp, extension):
-    filename = os.path.join(path, "{}_{}.npy".format(timestamp, extension))
-    np.save(filename, data)
+def save_arrays_to_dataset(data, path, timestamp):
+    filename = os.path.join(path, "{}.npz".format(timestamp[0].strftime(TIMESTAMP_FORMAT_MINUTE)))
+    np.savez(filename, **data)
 
 
 def save_image_to_dataset(img, path, timestamp, extension):
-    filename = os.path.join(path, "{}_{}.tif".format(timestamp, extension))
+    filename = os.path.join(path, "{}_{}.jpg".format(timestamp.strftime(TIMESTAMP_FORMAT_MINUTE), extension))
     saved = cv2.imwrite(filename, img)
     if not saved:
         raise Exception("Failed to save image {}".format(filename))
 
 
-def get_irccam_data(timestamp, data_type="bt"):
-    assert data_type in ["bt", "img"], "Unrecognized IRCCAM data type: {}".format(
-        data_type
-    )
-    ts = datetime.datetime.strptime(timestamp[:-2], "%Y%m%d%H%M")
-    filename = glob.glob(
-        os.path.join(
-            RAW_DATA_PATH,
-            "irccam_extract",
-            ts.strftime("%Y%m%d"),
-            data_type,
-            "{}*.npy".format(ts.strftime("%Y%m%d%H%M")),
-        )
-    )
-    assert len(filename) > 0, "No IRCCAM {} file found for {}".format(
-        data_type, timestamp
-    )
-    return np.load(filename[0])
+def concat_images(*images):
+    processed = []
+    for i in images:
+        i = np.nan_to_num(i, copy=True, nan=255)
+        if i.ndim == 2:
+            i = cv2.cvtColor(i, cv2.COLOR_GRAY2RGB)
+        i = i.astype(np.uint8)
+        processed.append(i)
+
+    return np.concatenate(processed, axis=1)
 
 
-def valid_timestamps_for_days(days):
-    return np.concatenate([valid_timestamps_for_day(day) for day in days])
+def create_label_image(labels):
+    img = np.zeros((labels.shape[0], labels.shape[1], 3))
+    img[np.where(np.isnan(labels))] = float('nan')
+    img[:, :, 0] = labels * 255
+    return img
 
 
-def valid_timestamps_for_day(day):
-    vis_ts = vis_timestamps_for_day(day)
-    ir_ts = irccam_timestamps_for_day(day)
-    ts = filter_ignored(np.intersect1d(vis_ts, ir_ts))
-    return ts
+def match_timestamps(ir_ts, vis_ts):
+    """
+    intersection is not enough since the timestamps do not match exactly
+    """
+    valid = []
+    for t_vis in vis_ts:
+        # find closes timestamp
+        idx = take_closest(ir_ts, t_vis)
+        if abs(t_vis - ir_ts[idx]) < timedelta(seconds=25):
+            valid.append((t_vis, (ir_ts[idx], idx)))
+
+    return valid
 
 
 def valid_days():
-    vis_days = np.array(get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb")))
-    ir_days = np.array(
-        get_contained_dirs(os.path.join(RAW_DATA_PATH, "irccam_extract"))
-    )
-    days = filter_ignored(np.intersect1d(vis_days, ir_days))
-    return days
+    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb"))
+    ir_days = [f[7:-8] for f in get_contained_files(os.path.join(RAW_DATA_PATH, "irccam"))]
+
+    valid = list(sorted(set(vis_days).intersection(ir_days)))
+    valid = filter_ignored_days(valid)
+    return valid
 
 
-def vis_timestamps_for_day(day):
+def get_vis_timestamps(day):
     filenames = [
         file
         for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
         if file.endswith("_0.jpg")
     ]
-    timestamps = [filename.replace("_0.jpg", "") for filename in filenames]
-    return np.array(timestamps)
+    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
+                  for filename in filenames]
+    timestamps.sort()
+    return timestamps
 
 
-def irccam_timestamps_for_day(day, data_type="bt"):
-    assert data_type in ["bt", "img"], "Unrecognized IRCCAM data type: {}".format(
-        data_type
-    )
-    filenames = [
-        file
-        for file in get_contained_files(
-            os.path.join(RAW_DATA_PATH, "irccam_extract", day, data_type)
-        )
-        if file.endswith(".npy")
-    ]
-    timestamps = [filename[:-6] + "00" for filename in filenames]
-    return np.array(timestamps)
+def get_irc_timestamps(day, irc_file):
+    return [convert_timestamp(day, x) for x in irc_file["TM"][0, :]]
+
+
+def convert_timestamp(day, timestamp):
+    """
+    Converts irccam timestamps in double format (e.g. 737653.55976907) to
+    timestamps capped to the nearest second (e.g. 20190816132643)
+    """
+    seconds = round(24 * 60 * 60 * (timestamp - math.floor(timestamp)))
+    seconds_delta = timedelta(0, seconds)
+    day_timestamp = datetime.strptime(day, "%Y%m%d")
+    return tz.localize(day_timestamp + seconds_delta)
 
 
 def get_vis_img(timestamp):
-    img_time = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
     file_path = os.path.join(
-        RAW_DATA_PATH, "rgb", img_time.strftime("%Y%m%d"), "{}_0.jpg".format(timestamp)
+        RAW_DATA_PATH, "rgb", timestamp.strftime(TIMESTAMP_FORMAT_DAY),
+        "{}_0.jpg".format(timestamp.strftime(TIMESTAMP_FORMAT))
     )
     img_vis = cv2.imread(file_path)
     if img_vis is None:
@@ -203,10 +219,19 @@ def get_vis_img(timestamp):
     return img_vis
 
 
-def transform_perspective(img, shape):
-    matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/trans_matrix.csv")
-    M = np.loadtxt(matrix_file, delimiter=",")
-    return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)
+# https://stackoverflow.com/questions/12141150/from-list-of-integers-get-number-closest-to-a-given-value
+def take_closest(array, number):
+    pos = bisect_left(array, number)
+    if pos == 0:
+        return 0
+    if pos == len(array):
+        return len(array) - 1
+    before = array[pos - 1]
+    after = array[pos]
+    if after - number < number - before:
+        return pos
+    else:
+        return pos - 1
 
 
 if __name__ == "__main__":

@@ -129,14 +129,7 @@ dmypy.json
 .pyre/
 
 # Data folder
-/data/**/*.jpg
-/data/**/*.mat
-/data/**/*.npz
-/data/**/*.npy
-/data/**/*.txt
-/data/**/*.tif
-/data/**/*.zip
-/data/**/*.html*
+/data/
 dsl-data/*
 
 

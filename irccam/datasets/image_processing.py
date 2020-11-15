@@ -1,7 +1,16 @@
 import cv2
 import numpy as np
+import os
 
-from datasets.dataset_filter import is_almost_black
+PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
+RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
+DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
+
+# a bit ugly global, don't want to carry it around in parameters or load it a million times
+# to fix if causes problems when importing this file
+# 255 to remove, 0 to keep
+MASK = cv2.imread(os.path.join(PROJECT_PATH, "irccam/datasets/common_mask.bmp"), -1)
+
 
 # from https://stackoverflow.com/a/23316542
 def rotate_image(image, angle):
@@ -12,46 +21,55 @@ def rotate_image(image, angle):
     return new_image
 
 
-def process_irccam_img(img, dtype=np.uint16):
-    processed_ir = normalize_irccam_image(img, dtype=dtype)
+def process_irccam_img(img):
+    processed_ir = np.swapaxes(img, 0, 1)
     processed_ir = cv2.flip(processed_ir, -1)
     processed_ir = processed_ir[110:530, 80:500]
+    normalize_irccam_image(processed_ir)
+    processed_ir = transform_perspective(processed_ir, (processed_ir.shape[0], processed_ir.shape[1]))
+    apply_mask(processed_ir, MASK)
+
     return processed_ir
 
 
-# need to add masking too, but unsure about the rotations
 def process_vis_img(img):
-    if is_almost_black(img):
-        return None
     processed_vis = cv2.resize(img, (640, 480))
     processed_vis = processed_vis[50:470, 105:525]
     processed_vis = cv2.flip(processed_vis, 1)
     processed_vis = rotate_image(processed_vis, -130)
+    processed_vis = processed_vis.astype("float32")
+
+    apply_mask(processed_vis, MASK)
+
     return processed_vis
 
 
-def normalize_irccam_image(img_ir_raw, dtype=np.uint16):
+def normalize_irccam_image(img_ir):
     """
+    Using floats from 0-255 since we are saving into np arrays anyway. Modifies the input array in place.
+
     TODO:
     Find appropriate min and max temperature thresholds for IRCCAM data. The threshold
     is to remove outliers.
 
-    Using 16 bit tif instead of rgb, to prevent data loss on images with outlying
-    pixels, should rethink this too.
-    Set the actual image to 0-60000. reserve completly white for the mask
+    Found quite a few images that have values higher than 30, but still make sense
     """
     # Threshold to remove outliers
-    ir_threshold = (-80.0, 30.0)
-    mi = ir_threshold[0]
-    ma = ir_threshold[1]
-    lower = img_ir_raw < mi
-    higher = img_ir_raw > ma
-    out_min = np.iinfo(dtype).min
-    out_max = np.iinfo(dtype).max
-    gray_ir = img_ir_raw - mi
-    gray_ir *= out_max / (ma - mi)
-    np.nan_to_num(gray_ir, copy=False, nan=out_max)
-    gray_ir[lower] = out_min
-    gray_ir[higher] = out_max
-    img = gray_ir.astype(dtype)
-    return img
+    mi, ma = -80.0, 60.0
+    img_ir[img_ir < mi] = mi
+    img_ir[img_ir > ma] = ma
+    img_ir -= mi
+    img_ir *= 255 / (ma - mi)
+
+
+def apply_mask(image, mask):
+    """
+    Applies the common RGB/IRC mask to the image in place
+    """
+    image[mask == 255] = np.nan
+
+
+def transform_perspective(img, shape):
+    matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/trans_matrix.csv")
+    M = np.loadtxt(matrix_file, delimiter=",")
+    return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)
