@@ -18,8 +18,11 @@ class CloudSegmentation(pl.LightningModule):
             ]
         )
         dataset_class = get_dataset_class(args.dataset_class)
+        print("Loading training data")
         self.dataset_train = dataset_class(args.dataset_root, "train", trans)
+        print("Loading val data")
         self.dataset_val = dataset_class(args.dataset_root, "val", trans)
+        print("Loading test data")
         self.dataset_test = dataset_class(args.dataset_root, "test", trans)
 
         self.model = get_model(args.model_name, args)
