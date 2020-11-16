@@ -75,7 +75,9 @@ class HDF5Dataset(Dataset):
         self.length = 0
         self.offsets = []
 
-        self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
+        self.files = [
+            os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days
+        ]
         for h5dataset_fp in self.files:
             self._add_data_infos(h5dataset_fp)
 
@@ -93,12 +95,12 @@ class HDF5Dataset(Dataset):
 
     def _add_data_infos(self, file_path):
         with h5py.File(file_path) as h5_file:
-            size = h5_file['timestamp'].shape[0]
+            size = h5_file["timestamp"].shape[0]
             self.offsets.append(self.length)
             self.length += size
 
     def get_data_infos(self, type):
-        data_info_type = [di for di in self.data_info if di['type'] == type]
+        data_info_type = [di for di in self.data_info if di["type"] == type]
         return data_info_type
 
     def get_data(self, index):
@@ -106,13 +108,15 @@ class HDF5Dataset(Dataset):
         file_offset = self.offsets[file_index]
         i = index - file_offset
         with h5py.File(self.files[file_index]) as h5_file:
-            return h5_file["timestamp"][i], h5_file["irc"][i], h5_file["labels1"][i]
+            return (
+                h5_file["timestamp"][i],
+                h5_file["irc"][i],
+                h5_file["labels1"][i].astype(np.long),
+            )
 
 
 if __name__ == "__main__":
-    dataset = HDF5Dataset(
-        "../../data/datasets/dataset_v1", "train"
-    )
+    dataset = HDF5Dataset("../../data/datasets/dataset_v1", "train")
     print(dataset.days)
     print(len(dataset))
     print(dataset[23]["timestamp"])

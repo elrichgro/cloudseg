@@ -3,7 +3,7 @@
   "batch_size_val": 8,
   "num_epochs": 16,
   "model_name": "unet",
-  "dataset_root": "dataset_v1",
+  "dataset_root": "dataset_hdf5",
   "learning_rate": 0.01,
   "experiment_name": "test-experiment",
   "dataset_class": "hdf5"
