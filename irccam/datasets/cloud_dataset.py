@@ -4,6 +4,7 @@ import os
 import h5py
 import numpy as np
 from bisect import bisect_right
+import math
 
 """
 Implemented the dataset from daily H5 files
@@ -13,7 +14,7 @@ Inspiration https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f
 
 
 class CloudDataset(Dataset):
-    def __init__(self, dataset_root, split, transform=None):
+    def __init__(self, dataset_root, split, transform=None, nth_sample=1):
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
         self.dataset_root = dataset_root
@@ -61,7 +62,7 @@ class HDF5Dataset(Dataset):
         transform: PyTorch transform to apply to every data instance (default=None).
     """
 
-    def __init__(self, dataset_root, split, transform=None):
+    def __init__(self, dataset_root, split, transform=None, nth_sample=1):
         super().__init__()
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
@@ -69,6 +70,7 @@ class HDF5Dataset(Dataset):
         self.split = split
         self.transform = transform
         self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
+        self.nth_sample = nth_sample
 
         self.data_info = []
         self.transform = transform
@@ -95,7 +97,7 @@ class HDF5Dataset(Dataset):
 
     def _add_data_infos(self, file_path):
         with h5py.File(file_path) as h5_file:
-            size = h5_file["timestamp"].shape[0]
+            size = math.floor(h5_file["timestamp"].shape[0] / self.nth_sample)
             self.offsets.append(self.length)
             self.length += size
 
@@ -106,7 +108,7 @@ class HDF5Dataset(Dataset):
     def get_data(self, index):
         file_index = bisect_right(self.offsets, index) - 1
         file_offset = self.offsets[file_index]
-        i = index - file_offset
+        i = (index - file_offset) * self.nth_sample
         with h5py.File(self.files[file_index]) as h5_file:
             return (
                 h5_file["timestamp"][i],

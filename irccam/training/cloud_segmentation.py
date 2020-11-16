@@ -18,9 +18,15 @@ class CloudSegmentation(pl.LightningModule):
             ]
         )
         dataset_class = get_dataset_class(args.dataset_class)
-        self.dataset_train = dataset_class(args.dataset_root, "train", trans)
-        self.dataset_val = dataset_class(args.dataset_root, "val", trans)
-        self.dataset_test = dataset_class(args.dataset_root, "test", trans)
+        self.dataset_train = dataset_class(
+            args.dataset_root, "train", trans, args.nth_sample
+        )
+        self.dataset_val = dataset_class(
+            args.dataset_root, "val", trans, args.nth_sample
+        )
+        self.dataset_test = dataset_class(
+            args.dataset_root, "test", trans, args.nth_sample
+        )
 
         self.model = get_model(args.model_name, args)
 
