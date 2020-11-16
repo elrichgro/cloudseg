@@ -4,7 +4,7 @@ import torch
 from torchvision import transforms
 from pytorch_lightning.metrics.functional.classification import iou
 
-from irccam.datasets.helpers import get_dataset
+from irccam.datasets.helpers import get_dataset_class
 from irccam.models.helpers import get_model
 
 
