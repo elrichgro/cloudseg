@@ -112,7 +112,7 @@ class HDF5Dataset(Dataset):
         with h5py.File(self.files[file_index]) as h5_file:
             return (
                 h5_file["timestamp"][i],
-                h5_file["irc"][i],
+                np.nan_to_num(h5_file["irc"][i], nan=255) / 255,  # scale to range [0,1]
                 h5_file["labels1"][i].astype(np.long),
             )
 

@@ -58,7 +58,7 @@ class CloudSegmentation(pl.LightningModule):
 
     def validation_step_end(self, outputs):
         val_iou = iou(torch.argmax(outputs["preds"], 1), outputs["labels"])
-        self.log("val_iou", val_iou)
+        self.log("val_iou", val_iou, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         batch_input = batch["irc"]
