@@ -5,5 +5,6 @@
   "model_name": "unet",
   "dataset_root": "dataset_v1",
   "learning_rate": 0.01,
-  "experiment_name": "test-experiment"
+  "experiment_name": "test-experiment",
+  "dataset_class": "hdf5"
 }
