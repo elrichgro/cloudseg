@@ -4,7 +4,7 @@ import torch
 from torchvision import transforms
 from pytorch_lightning.metrics.functional.classification import iou
 
-from irccam.datasets.cloud_dataset import CloudDataset
+from irccam.datasets.helpers import get_dataset_class
 from irccam.models.helpers import get_model
 
 
@@ -17,9 +17,16 @@ class CloudSegmentation(pl.LightningModule):
                 transforms.ToTensor(),
             ]
         )
-        self.dataset_train = CloudDataset(args.dataset_root, "train", trans)
-        self.dataset_val = CloudDataset(args.dataset_root, "val", trans)
-        self.dataset_test = CloudDataset(args.dataset_root, "test", trans)
+        dataset_class = get_dataset_class(args.dataset_class)
+        self.dataset_train = dataset_class(
+            args.dataset_root, "train", trans, args.nth_sample
+        )
+        self.dataset_val = dataset_class(
+            args.dataset_root, "val", trans, args.nth_sample
+        )
+        self.dataset_test = dataset_class(
+            args.dataset_root, "test", trans, args.nth_sample
+        )
 
         self.model = get_model(args.model_name, args)
 
@@ -51,7 +58,7 @@ class CloudSegmentation(pl.LightningModule):
 
     def validation_step_end(self, outputs):
         val_iou = iou(torch.argmax(outputs["preds"], 1), outputs["labels"])
-        self.log("val_iou", val_iou)
+        self.log("val_iou", val_iou, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         batch_input = batch["irc"]
