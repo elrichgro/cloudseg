@@ -33,9 +33,9 @@ def create_rgb_label_julian(image, cloud_ref=2.35):
     rat = np.zeros(image.shape[:2])
     rat[ok] = image[:, :, 0][ok] / image[:, :, 2][ok] + image[:, :, 0][ok] / image[:, :, 1][ok]
 
-    result = np.zeros(rat.shape)
+    result = np.zeros(rat.shape, dtype="byte")
     result[rat < cloud_ref] = 1
-    result[nans] = float('nan')
+    result[nans] = -1
 
     return result
 

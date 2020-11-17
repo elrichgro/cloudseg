@@ -9,15 +9,12 @@ Basic flow:
     - Get ir image, RGB image
     - Preprocess
     - Create label
-    - Save files
+    - Filter out some images
+    - Save files into HDF5 format
 
 Still to do:
-- Fix irccam processing (see todo note below)
-- rgb image horizon mask (currently parts of horizon get marked as clouds)
-
-Considerations:
-- Save images as numpy array instead of as images to make life easier/more uniform for import/export
-- irccam data is between approx. -500 and 60, although most images at between -60, 60. What kind of grayscale to user?
+- better RGB detection
+- filter out bad days
 """
 
 import cv2
@@ -25,7 +22,7 @@ import math
 import numpy as np
 import h5py
 
-from tqdm import tqdm
+from joblib import Parallel, delayed
 from bisect import bisect_left
 
 from datetime import datetime, timedelta
@@ -35,7 +32,7 @@ from sklearn.model_selection import train_test_split
 
 from datasets.filesystem import get_contained_dirs, get_contained_files
 from irccam.datasets.image_processing import process_irccam_img, process_vis_img
-from irccam.datasets.dataset_filter import filter_sun, filter_ignored_days
+from irccam.datasets.dataset_filter import filter_sun, filter_ignored_days, filter_sparse
 from irccam.datasets.rgb_labeling import create_rgb_label_julian
 
 from irccam.utils.definitions import *
@@ -54,25 +51,26 @@ def create_dataset(dataset_name="dataset_v1", sizes=(0.6, 0.2, 0.2)):
     if not os.path.exists(path):
         os.makedirs(path)
 
-        # Save splits
+    success = Parallel(n_jobs=2)(delayed(process_day)(d, i, len(days), dataset_name) for i, d in enumerate(days))
+    print(success)
+    # Save splits
+    days_ok = [x for x, y in zip(days, success) if y]
     train, test, val = sizes
-    days_train, days_testval = train_test_split(days, test_size=test + val, train_size=train)
+    days_train, days_testval = train_test_split(days_ok, test_size=test + val, train_size=train)
     days_val, days_test = train_test_split(days_testval, test_size=test / (test + val), train_size=val / (test + val))
     np.savetxt(os.path.join(path, "train.txt"), days_train, fmt="%s")
     np.savetxt(os.path.join(path, "test.txt"), days_test, fmt="%s")
     np.savetxt(os.path.join(path, "val.txt"), days_val, fmt="%s")
 
-    for i, day in enumerate(days):
-        print("Processing day {} - {}/{}".format(day, i + 1, len(days)))
-        process_day(day, dataset_name)
 
+def process_day(day, i, n, dataset_name):
+    print("Processing day {} - {}/{}".format(day, i + 1, n))
 
-def process_day(day, dataset_name):
     # create output directory
     data_path = os.path.join(DATASET_PATH, dataset_name)
     data_filename = os.path.join(data_path, "{}.h5".format(day))
     if os.path.exists(data_filename):
-        return
+        return True
 
     previews_path = os.path.join(data_path, "previews")
     preview_filename = os.path.join(previews_path, "{}_preview.mp4".format(day))
@@ -86,6 +84,7 @@ def process_day(day, dataset_name):
 
         matching_timestamps = match_timestamps(irc_timestamps, vis_timestamps)
         filtered_timestamps = filter_sun(matching_timestamps, day)
+        filtered_timestamps = filter_sparse(filtered_timestamps)
         n = len(filtered_timestamps)
         if n == 0:
             return False
@@ -93,16 +92,16 @@ def process_day(day, dataset_name):
         timestamps = []
         vis_images = np.empty((n, 420, 420, 3), dtype="float32")
         irc_images = np.empty((n, 420, 420), dtype="float32")
-        labels1 = np.empty((n, 420, 420), dtype="bool")
-        labels2 = np.empty((n, 420, 420), dtype="bool")
-        labels3 = np.empty((n, 420, 420), dtype="bool")
+        labels1 = np.empty((n, 420, 420), dtype="byte")
+        labels2 = np.empty((n, 420, 420), dtype="byte")
+        labels3 = np.empty((n, 420, 420), dtype="byte")
 
         # We'll output a preview video
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
-        video_out = cv2.VideoWriter(preview_filename, fourcc, 30.0, (2100, 420))
+        video_out = cv2.VideoWriter(preview_filename, fourcc, 3, (2100, 420))
 
         print("Processing images")
-        for i, (vis_ts, (irc_ts, irc_idx)) in enumerate(tqdm(filtered_timestamps)):
+        for i, (vis_ts, (irc_ts, irc_idx)) in enumerate(filtered_timestamps):
             # lets just keep one timestamp, time sync will have to be done in this file anyway
             timestamps.append(irc_ts.strftime(TIMESTAMP_FORMAT))
 
@@ -135,7 +134,7 @@ def process_day(day, dataset_name):
         with h5py.File(data_filename, "w") as fw:
             fw.create_dataset("timestamp", data=timestamps)
             fw.create_dataset("irc", data=irc_images, chunks=(1, 420, 420), compression="lzf")
-            fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
+            #fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
             fw.create_dataset("labels1", data=labels1, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("labels2", data=labels2, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("labels3", data=labels3, chunks=(1, 420, 420), compression="lzf")
@@ -169,8 +168,8 @@ def concat_images(*images):
 
 def create_label_image(labels):
     img = np.zeros((labels.shape[0], labels.shape[1], 3))
-    img[np.where(np.isnan(labels))] = float('nan')
     img[:, :, 0] = labels * 255
+    img[np.where(labels == -1)] = float('nan')
     return img
 
 
@@ -251,4 +250,4 @@ def take_closest(array, number):
 
 
 if __name__ == "__main__":
-    create_dataset()
+    create_dataset(dataset_name="v2")

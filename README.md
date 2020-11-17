@@ -1,28 +1,24 @@
 # irccam-pmodwrc
 Cloud detection using the IRCCAM at PMOD/WRC
 
-## Install dependencies
-Make sure you have pipenv and pyenv installed, then you can run:
+## Create environment
+We are using good old Anaconda now... **** you Windows 
 ```
-pipenv install 
+conda env create --name=dslab -f environment.yml 
+```
+
+## Update environment
+```
+conda env update --name=dslab -f environment.yml 
 ```
 
 ## Running notebooks
 To run jupyter notebook with the project virtual env:
 ```
-pipenv shell
+conda activate dslab
 jupyter notebook
 ```
-OR
-```
-pipenv run jupyter notebook
-```
 
-You may need to create a kernel for jupyter notebook with 
-```
-python -m ipykernel install --user --name=irccam
-```
-Then, in jupyter notebook select Kernel -> Change kernel -> irccam.
 
 ## Data
 The `data` folder is ignored by git, but we should use a consistent structure
@@ -40,14 +36,13 @@ currently:
     │       └── rgb
     └── datasets/
         ├── dataset_1/
-        │   ├── train/
-        │   │   ├── (day)
-        │   │       ├── (id)_irc.tif
-        │   │       ├── (id)_labels.tif
-        │   │       └── (id)_vis.tif
-        │   ├── val/
+        │   ├── previews/
+        │   │   ├── (day).mp4 # daily preview video
         │   │   └── ...
-        │   └── test/
-        │       └── ...
+        │   ├── train.txt # days from train
+        │   ├── test.txt # days for test
+        │   ├── val.txt # days for val
+        │   ├── (day).h5 # all daily data in HDF5 format
+        │   └── ...
         └── ...
 ```

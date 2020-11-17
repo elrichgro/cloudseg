@@ -1,0 +1,21 @@
+name: dslab
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.6
+  - pip=20.2
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - conda-forge::tqdm
+  - conda-forge::h5py
+  - conda-forge::jupyterlab
+  - conda-forge::opencv
+  - conda-forge::pytorch-lightning
+  - cudatoolkit=10.2
+  - scipy
+  - scikit-learn
+  - pip:
+    - astral
+    - argparse

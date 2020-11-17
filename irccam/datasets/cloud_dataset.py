@@ -111,7 +111,7 @@ class HDF5Dataset(Dataset):
 
 if __name__ == "__main__":
     dataset = HDF5Dataset(
-        "../../data/datasets/dataset_v1", "train"
+        "../../data/datasets/v2", "train"
     )
     print(dataset.days)
     print(len(dataset))
