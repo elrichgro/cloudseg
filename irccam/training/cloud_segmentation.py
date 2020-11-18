@@ -18,20 +18,15 @@ class CloudSegmentation(pl.LightningModule):
             ]
         )
         dataset_class = get_dataset_class(args.dataset_class)
-        self.dataset_train = dataset_class(
-            args.dataset_root, "train", trans, args.nth_sample
-        )
-        self.dataset_val = dataset_class(
-            args.dataset_root, "val", trans, args.nth_sample
-        )
-        self.dataset_test = dataset_class(
-            args.dataset_root, "test", trans, args.nth_sample
-        )
+        self.dataset_train = dataset_class(args.dataset_root, "train", trans)
+        self.dataset_val = dataset_class(args.dataset_root, "val", trans)
+        self.dataset_test = dataset_class(args.dataset_root, "test", trans)
 
         self.model = get_model(args.model_name, args)
 
-        # TODO: add ignore_index arg for masked out pixels
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(
+            reduction="mean", ignore_index=-1
+        )
         # TODO: metrics
 
     def training_step(self, batch, batch_idx):
@@ -57,7 +52,11 @@ class CloudSegmentation(pl.LightningModule):
         return {"preds": preds, "labels": batch_labels}
 
     def validation_step_end(self, outputs):
-        val_iou = iou(torch.argmax(outputs["preds"], 1), outputs["labels"])
+        mask = outputs["labels"] != -1
+        val_iou = iou(
+            torch.argmax(outputs["preds"], 1)[mask],
+            outputs["labels"][mask],
+        )
         self.log("val_iou", val_iou, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
