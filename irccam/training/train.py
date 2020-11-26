@@ -16,8 +16,7 @@ def train(config):
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     logger = TestTubeLogger(
         save_dir=os.path.join(
-            PROJECT_PATH,
-            "training_logs",
+            config.log_dir,
             "{}-{}".format(timestamp, config.experiment_name),
         ),
         name="tube_logs",
@@ -49,6 +48,9 @@ def get_config(config_file):
         config = json.load(f)
     if not os.path.isdir(config["dataset_root"]):
         config["dataset_root"] = os.path.join(DATASET_PATH, config["dataset_root"])
+    config["log_dir"] = config.get(
+        "log_dir", os.path.join(PROJECT_PATH, "training_logs")
+    )
     return argparse.Namespace(**config)
 
 
