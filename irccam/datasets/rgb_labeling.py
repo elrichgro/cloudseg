@@ -9,9 +9,47 @@ import os
 import cv2
 import numpy as np
 
-PROJECT_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..")
-RAW_DATA_PATH = os.path.join(PROJECT_PATH, "data/raw/davos")
-DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
+from datasets.labelling_helpers import (
+    Pipeline,
+    SimpleRatio,
+    ApplyMask,
+    GaussianBlur,
+    CombineLabels,
+    AdaptiveThreshold,
+    MaskedOtsu,
+    FixedThreshold,
+)
+from datasets.masks import common_mask, background_mask
+
+
+def create_label_adaptive(img):
+    pipeline = Pipeline(
+        [
+            SimpleRatio(),
+            ApplyMask(background_mask, mask_val=40),  # Workaround for making adaptive threshold fork for masked images
+            GaussianBlur(size=(5, 5)),
+            CombineLabels(
+                [
+                    CombineLabels(
+                        [
+                            AdaptiveThreshold(
+                                C=1, block_size=111, morph_size=(3, 3), method=cv2.ADAPTIVE_THRESH_MEAN_C,
+                            ),  # Picks up individual cirrus clouds
+                            MaskedOtsu(background_mask),  # Good for mixed condition days
+                            FixedThreshold(threshold=48),  # Takes care of very cloudy days
+                        ],
+                        operation="or",
+                    ),
+                    FixedThreshold(threshold=23),  # Helps with completely open days
+                ],
+                operation="and",
+            ),
+            ApplyMask(common_mask, mask_val=-1),
+        ]
+    )
+    result = pipeline.apply(img)
+    result[result == 255] = 1
+    return result
 
 
 def create_rgb_label_julian(image, cloud_ref=2.35):
@@ -36,6 +74,7 @@ def create_rgb_label_julian(image, cloud_ref=2.35):
     result = np.zeros(rat.shape, dtype="byte")
     result[rat < cloud_ref] = 1
     result[nans] = -1
+    result[common_mask == 255] = -1
 
     return result
 
@@ -61,3 +100,4 @@ def create_rgb_label_alt(image, cloud_ref=2.15):
 
     cloud = np.array(rat < cloud_ref, dtype=np.uint8)
     return cloud
+

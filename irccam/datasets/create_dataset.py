@@ -31,9 +31,13 @@ from pytz import timezone
 from sklearn.model_selection import train_test_split
 
 from datasets.filesystem import get_contained_dirs, get_contained_files
-from irccam.datasets.image_processing import process_irccam_img, process_vis_img
-from irccam.datasets.dataset_filter import filter_sun, filter_ignored_days, filter_sparse
-from irccam.datasets.rgb_labeling import create_rgb_label_julian
+from irccam.datasets.image_processing import process_irccam_img, process_vis_img, apply_common_mask
+from irccam.datasets.dataset_filter import (
+    filter_sun,
+    filter_ignored_days,
+    filter_sparse,
+)
+from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
 
 from irccam.utils.definitions import *
 
@@ -95,10 +99,11 @@ def process_day(day, i, n, dataset_name):
         labels1 = np.empty((n, 420, 420), dtype="byte")
         labels2 = np.empty((n, 420, 420), dtype="byte")
         labels3 = np.empty((n, 420, 420), dtype="byte")
+        labels4 = np.empty((n, 420, 420), dtype="byte")
 
         # We'll output a preview video
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
-        video_out = cv2.VideoWriter(preview_filename, fourcc, 3, (2100, 420))
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Be sure to use lower case
+        video_out = cv2.VideoWriter(preview_filename, fourcc, 3, (2520, 420))
 
         print("Processing images")
         for i, (vis_ts, (irc_ts, irc_idx)) in enumerate(filtered_timestamps):
@@ -117,8 +122,13 @@ def process_day(day, i, n, dataset_name):
             label2_image = create_label_image(label2)
             label3 = create_rgb_label_julian(vis_img, cloud_ref=3)
             label3_image = create_label_image(label3)
+            label4 = create_label_adaptive(vis_img)
+            label4_image = create_label_image(label4)
 
-            comparison_image = concat_images(irc_img, vis_img, label1_image, label2_image, label3_image)
+            # Apply masks
+            apply_common_mask(vis_img)
+
+            comparison_image = concat_images(irc_img, vis_img, label1_image, label2_image, label3_image, label4_image)
             video_out.write(comparison_image)  # Write out frame to video
             # save_image_to_dataset(comparison_image, previews_path, vis_ts, "preview")
 
@@ -127,6 +137,7 @@ def process_day(day, i, n, dataset_name):
             labels1[i, :, :] = label1
             labels2[i, :, :] = label2
             labels3[i, :, :] = label3
+            labels4[i, :, :] = label4
 
         video_out.release()
 
@@ -134,10 +145,11 @@ def process_day(day, i, n, dataset_name):
         with h5py.File(data_filename, "w") as fw:
             fw.create_dataset("timestamp", data=timestamps)
             fw.create_dataset("irc", data=irc_images, chunks=(1, 420, 420), compression="lzf")
-            #fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
+            # fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
             fw.create_dataset("labels1", data=labels1, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("labels2", data=labels2, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("labels3", data=labels3, chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("labels4", data=labels4, chunks=(1, 420, 420), compression="lzf")
 
         return True
 
@@ -169,7 +181,7 @@ def concat_images(*images):
 def create_label_image(labels):
     img = np.zeros((labels.shape[0], labels.shape[1], 3))
     img[:, :, 0] = labels * 255
-    img[np.where(labels == -1)] = float('nan')
+    img[np.where(labels == -1)] = float("nan")
     return img
 
 
@@ -198,12 +210,9 @@ def valid_days():
 
 def get_vis_timestamps(day):
     filenames = [
-        file
-        for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
-        if file.endswith("_0.jpg")
+        file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")
     ]
-    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
-                  for filename in filenames]
+    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT)) for filename in filenames]
     timestamps.sort()
     return timestamps
 
@@ -225,8 +234,10 @@ def convert_timestamp(day, timestamp):
 
 def get_vis_img(timestamp):
     file_path = os.path.join(
-        RAW_DATA_PATH, "rgb", timestamp.strftime(TIMESTAMP_FORMAT_DAY),
-        "{}_0.jpg".format(timestamp.strftime(TIMESTAMP_FORMAT))
+        RAW_DATA_PATH,
+        "rgb",
+        timestamp.strftime(TIMESTAMP_FORMAT_DAY),
+        "{}_0.jpg".format(timestamp.strftime(TIMESTAMP_FORMAT)),
     )
     img_vis = cv2.imread(file_path)
     if img_vis is None:
@@ -250,4 +261,4 @@ def take_closest(array, number):
 
 
 if __name__ == "__main__":
-    create_dataset(dataset_name="v2")
+    create_dataset(dataset_name="v3")
