@@ -20,7 +20,13 @@ def process_irccam_img(img):
     processed_ir = processed_ir[110:530, 80:500]
     normalize_irccam_image(processed_ir)
     apply_common_mask(processed_ir)
+    return processed_ir
 
+def process_irccam_label(img):
+    processed_ir = np.swapaxes(img, 0, 1)
+    processed_ir = cv2.flip(processed_ir, -1)
+    processed_ir = processed_ir[110:530, 80:500]
+    apply_common_mask(processed_ir)
     return processed_ir
 
 
@@ -31,8 +37,28 @@ def process_vis_img(img):
     processed_vis = rotate_image(processed_vis, -130)
     processed_vis = processed_vis.astype("float32")
     processed_vis = transform_perspective(processed_vis, (processed_vis.shape[0], processed_vis.shape[1]))
-
+    apply_common_mask(processed_vis)
     return processed_vis
+
+
+"""
+Find sun on IR and replaces it with clear sky
+"""
+def sun_correction(vis_img, ir_img, cs_img, *labels, treshold=235):
+    # find the highsest 50 pixels
+    img = ir_img.copy()
+    img = cv2.GaussianBlur(img, (3, 3), 0)
+    (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(img)
+    if maxVal > treshold:
+        # lets call this a sun
+        cv2.circle(img, maxLoc, 30, -1337, -1)
+        circle = img == -1337
+        circle[common_mask == 255] = False
+        # draw circle on vis
+        cv2.circle(vis_img, maxLoc, 30, (0, 0, 255), 3)
+        for label in labels:
+            label[circle] = 0
+        ir_img[circle] = 0
 
 
 def normalize_irccam_image(img_ir):

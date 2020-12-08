@@ -16,6 +16,8 @@ dependencies:
   - cudatoolkit=10.2
   - scipy
   - scikit-learn
+  - scikit-image
+  - pandas
   - pip:
     - astral
     - argparse

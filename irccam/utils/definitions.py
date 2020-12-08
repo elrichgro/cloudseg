@@ -7,3 +7,4 @@ DATASET_PATH = os.path.join(PROJECT_PATH, "data/datasets")
 TIMESTAMP_FORMAT_DAY = "%Y%m%d"
 TIMESTAMP_FORMAT_MINUTE = "%Y%m%d%H%M"
 TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
+PRETTY_FORMAT = "%d.%m.%Y %H:%M:%S"
