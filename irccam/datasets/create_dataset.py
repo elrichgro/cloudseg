@@ -32,7 +32,8 @@ from pytz import timezone
 from sklearn.model_selection import train_test_split
 
 from datasets.filesystem import get_contained_dirs, get_contained_files
-from irccam.datasets.image_processing import process_irccam_img, process_vis_img, sun_correction, process_irccam_label
+from irccam.datasets.image_processing import process_irccam_img, process_vis_img, sun_correction, process_irccam_label, \
+    apply_common_mask
 from irccam.datasets.dataset_filter import (
     filter_sun,
     filter_ignored_days,
@@ -49,7 +50,7 @@ def create_dataset(dataset_name="dataset_v1", all_labels=False, sizes=(0.6, 0.2,
     assert sum(sizes) == 1, "Split sizes to not sum up to 1"
 
     print("Creating dataset")
-    days = valid_days()
+    days = valid_days()[:8]
 
     # Create data directory if it doesn't exist yet
     path = os.path.join(DATASET_PATH, dataset_name)
@@ -68,6 +69,7 @@ def create_dataset(dataset_name="dataset_v1", all_labels=False, sizes=(0.6, 0.2,
     np.savetxt(os.path.join(path, "test.txt"), days_test, fmt="%s")
     np.savetxt(os.path.join(path, "val.txt"), days_val, fmt="%s")
 
+
 def process_day(day, i, n, dataset_name, all_labels):
     print("Processing day {} - {}/{}".format(day, i + 1, n))
 
@@ -82,7 +84,7 @@ def process_day(day, i, n, dataset_name, all_labels):
     if not os.path.exists(previews_path):
         os.makedirs(previews_path)
 
-    fine_filter_data = pd.read_csv("../../data/raw/davos/days.csv")
+    #fine_filter_data = pd.read_csv("../../data/raw/davos/days.csv")
 
     with h5py.File(os.path.join(RAW_DATA_PATH, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
         irc_raw = fr["BT"]
@@ -95,14 +97,15 @@ def process_day(day, i, n, dataset_name, all_labels):
         filtered_timestamps = filter_sparse(filtered_timestamps)
 
         # bad, start, end, label = filter_manual(fine_filter_data, day, filtered_timestamps)
-        # so Henry work is not for nothing backup
-        #with open("filter_manual.csv", "a") as f:
-        #    f.write("{},{},{},{},{},{}\n".format(day, bad, start, end, filtered_timestamps[start][0].strftime(TIMESTAMP_FORMAT),
-        #                                             filtered_timestamps[end][0].strftime(TIMESTAMP_FORMAT)))
-
-        #if bad:
-        #    return False
-        #filtered_timestamps = filtered_timestamps[start:end]
+        # # so Henry work is not for nothing backup
+        # with open("filter_manual.csv", "a") as f:
+        #     f.write("{},{},{},{},{},{}\n".format(day, bad, start, end,
+        #                                          filtered_timestamps[start][0].strftime(TIMESTAMP_FORMAT),
+        #                                          filtered_timestamps[end][0].strftime(TIMESTAMP_FORMAT)))
+        #
+        # if bad:
+        #     return False
+        # filtered_timestamps = filtered_timestamps[start:end]
 
         n = len(filtered_timestamps)
         print(n)
@@ -153,6 +156,9 @@ def process_day(day, i, n, dataset_name, all_labels):
             label3_image = create_label_image(label3)
             label4_image = create_label_image(label4)
             # ir_label_image = create_label_image(ir_label)
+
+            # apply common mask to vis, cannot do it before to not mess with adaptive labeling
+            apply_common_mask(vis_img)
 
             comparison_image = concat_images(irc_img, vis_img, label1_image, label2_image, label3_image, label4_image)
             cv2.putText(comparison_image, irc_ts.strftime(PRETTY_FORMAT), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
@@ -296,4 +302,4 @@ def take_closest(array, number):
 
 
 if __name__ == "__main__":
-    create_dataset(dataset_name="test7", all_labels=False)
+    create_dataset(dataset_name="test8", all_labels=False)

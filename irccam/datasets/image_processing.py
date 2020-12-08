@@ -19,14 +19,13 @@ def process_irccam_img(img):
     processed_ir = cv2.flip(processed_ir, -1)
     processed_ir = processed_ir[110:530, 80:500]
     normalize_irccam_image(processed_ir)
-    apply_common_mask(processed_ir)
+    apply_background_mask(processed_ir)
     return processed_ir
 
 def process_irccam_label(img):
     processed_ir = np.swapaxes(img, 0, 1)
     processed_ir = cv2.flip(processed_ir, -1)
     processed_ir = processed_ir[110:530, 80:500]
-    apply_common_mask(processed_ir)
     return processed_ir
 
 
@@ -37,7 +36,7 @@ def process_vis_img(img):
     processed_vis = rotate_image(processed_vis, -130)
     processed_vis = processed_vis.astype("float32")
     processed_vis = transform_perspective(processed_vis, (processed_vis.shape[0], processed_vis.shape[1]))
-    apply_common_mask(processed_vis)
+    apply_background_mask(processed_vis)
     return processed_vis
 
 
