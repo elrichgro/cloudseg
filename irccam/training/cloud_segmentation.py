@@ -9,19 +9,18 @@ from irccam.models.helpers import get_model
 
 
 class CloudSegmentation(pl.LightningModule):
-    def __init__(self, args):
+    def __init__(self, **kwargs):
         super(CloudSegmentation, self).__init__()
-        self.args = args
+        self.save_hyperparameters()
         trans = transforms.Compose([transforms.ToTensor(),])
-        dataset_class = get_dataset_class(args.dataset_class)
-        self.dataset_train = dataset_class(args.dataset_root, "train", trans, args.use_clear_sky)
-        self.dataset_val = dataset_class(args.dataset_root, "val", trans, args.use_clear_sky)
-        self.dataset_test = dataset_class(args.dataset_root, "test", trans, args.use_clear_sky)
+        dataset_class = get_dataset_class(self.hparams.dataset_class)
+        self.dataset_train = dataset_class(self.hparams.dataset_root, "train", trans, self.hparams.use_clear_sky)
+        self.dataset_val = dataset_class(self.hparams.dataset_root, "val", trans, self.hparams.use_clear_sky)
+        self.dataset_test = dataset_class(self.hparams.dataset_root, "test", trans, self.hparams.use_clear_sky)
 
-        self.model = get_model(args.model_name, args)
+        self.model = get_model(self.hparams.model_name, self.hparams)
 
         self.cross_entropy_loss = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-1)
-        # TODO: metrics
 
     def training_step(self, batch, batch_idx):
         batch_input = batch["irc"]
@@ -60,15 +59,17 @@ class CloudSegmentation(pl.LightningModule):
         self.log("test_loss", loss)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.args.learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
     def train_dataloader(self):
-        return DataLoader(self.dataset_train, self.args.batch_size, shuffle=True, pin_memory=True, drop_last=True,)
+        return DataLoader(self.dataset_train, self.hparams.batch_size, shuffle=True, pin_memory=True, drop_last=True,)
 
     def val_dataloader(self):
-        return DataLoader(self.dataset_val, self.args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,)
+        return DataLoader(
+            self.dataset_val, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
+        )
 
     def test_dataloader(self):
         return DataLoader(
-            self.dataset_test, self.args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
+            self.dataset_test, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
         )

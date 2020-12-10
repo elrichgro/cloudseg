@@ -11,11 +11,11 @@ from irccam.utils.definitions import *
 
 
 def train(config):
-    model = CloudSegmentation(config)
+    model = CloudSegmentation(**config)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     logger = TestTubeLogger(
-        save_dir=os.path.join(config.log_dir, "{}-{}".format(timestamp, config.experiment_name)),
+        save_dir=os.path.join(config["log_dir"], "{}-{}".format(timestamp, config["experiment_name"])),
         name="tube_logs",
         version=0,
     )
@@ -34,7 +34,7 @@ def train(config):
         logger=logger,
         checkpoint_callback=checkpoint_callback,
         gpus="-1" if torch.cuda.is_available() else None,
-        max_epochs=config.num_epochs,
+        max_epochs=config["num_epochs"],
     )
 
     trainer.fit(model)
@@ -49,7 +49,7 @@ def get_config(config_file):
         config["dataset_root"] = os.path.join(DATASET_PATH, config["dataset_root"])
     config["log_dir"] = config.get("log_dir", os.path.join(PROJECT_PATH, "training_logs"))
     config["use_clear_sky"] = config.get("use_clear_sky", False)
-    return argparse.Namespace(**config)
+    return config
 
 
 if __name__ == "__main__":
