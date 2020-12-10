@@ -37,19 +37,14 @@ class CloudDataset(Dataset):
             label = self.transform(label)
 
         assert irc is not None, "Could not load irc for timestamp {}".format(timestamp)
-        assert label is not None, "Could not load label for timestamp {}".format(
-            timestamp
-        )
+        assert label is not None, "Could not load label for timestamp {}".format(timestamp)
 
         return {"id": index, "timestamp": timestamp, "irc": irc, "label": label}
 
     def get_item_path(self, timestamp, modality):
         modality_suffix = {"label": "label.npy", "irc": "irc.tif"}
         return os.path.join(
-            self.dataset_root,
-            self.split,
-            timestamp[:8],
-            "{}_{}".format(timestamp, modality_suffix[modality]),
+            self.dataset_root, self.split, timestamp[:8], "{}_{}".format(timestamp, modality_suffix[modality]),
         )
 
 
@@ -75,9 +70,7 @@ class HDF5Dataset(Dataset):
         self.length = 0
         self.offsets = []
 
-        self.files = [
-            os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days
-        ]
+        self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
         for h5dataset_fp in self.files:
             self._add_data_infos(h5dataset_fp)
 
@@ -111,8 +104,7 @@ class HDF5Dataset(Dataset):
             return (
                 h5_file["timestamp"][i],
                 np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),
-                h5_file["labels1"][i].astype(np.long),
-                h5_file["labels1"][i].astype(np.long)
+                h5_file["labels0"][i].astype(np.long),
             )
 
 
