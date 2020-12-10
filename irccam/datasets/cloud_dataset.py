@@ -79,11 +79,11 @@ class HDF5Dataset(Dataset):
         timestamp, irc_raw, label, clear_sky = self.get_data(index)
 
         if self.use_clear_sky:
-            irc_raw[irc_raw==0]=255.0
+            irc_raw[irc_raw == 0] = 255.0
             irc = irc_raw - clear_sky
 
             # Scale to [0,1]
-            irc[irc_raw=255] = -30.0
+            irc[irc_raw == 255] = -30.0
             irc += 30.0
             irc[irc > 130.0] = 130.0
             irc /= 130.0
