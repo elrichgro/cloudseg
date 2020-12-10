@@ -9,7 +9,7 @@ import os
 import cv2
 import numpy as np
 
-from datasets.labelling_helpers import (
+from irccam.datasets.labelling_helpers import (
     Pipeline,
     SimpleRatio,
     ApplyMask,
@@ -19,7 +19,7 @@ from datasets.labelling_helpers import (
     MaskedOtsu,
     FixedThreshold,
 )
-from datasets.masks import common_mask, background_mask
+from irccam.datasets.masks import common_mask, background_mask
 
 
 def create_label_adaptive(img):
