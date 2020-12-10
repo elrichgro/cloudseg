@@ -115,7 +115,7 @@ class HDF5Dataset(Dataset):
         file_index = bisect_right(self.offsets, index) - 1
         file_offset = self.offsets[file_index]
         i = index - file_offset
-        with h5py.File(self.files[file_index]) as h5_file:
+        with h5py.File(self.files[file_index], "r") as h5_file:
             return (
                 h5_file["timestamp"][i],
                 np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),

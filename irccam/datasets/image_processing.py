@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 from irccam.utils.definitions import *
-from datasets.masks import common_mask, background_mask
+from irccam.datasets.masks import common_mask, background_mask
 
 
 # from https://stackoverflow.com/a/23316542
@@ -21,6 +21,7 @@ def process_irccam_img(img):
     normalize_irccam_image(processed_ir)
     apply_background_mask(processed_ir)
     return processed_ir
+
 
 def process_irccam_label(img):
     processed_ir = np.swapaxes(img, 0, 1)
@@ -43,6 +44,8 @@ def process_vis_img(img):
 """
 Find sun on IR and replaces it with clear sky
 """
+
+
 def sun_correction(vis_img, ir_img, cs_img, *labels, treshold=235):
     # find the highsest 50 pixels
     img = ir_img.copy()
