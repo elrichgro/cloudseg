@@ -21,7 +21,13 @@ def train(config):
     )
 
     checkpoint_callback = ModelCheckpoint(
-        save_last=True, save_top_k=1, verbose=True, monitor="val_iou", mode="max", prefix=""
+        save_last=True,
+        save_top_k=1,
+        verbose=True,
+        monitor="val_iou",
+        mode="max",
+        prefix="",
+        filename="best-{epoch:02d}-{val_iou:.2f}",
     )
 
     trainer = Trainer(
