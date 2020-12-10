@@ -56,10 +56,11 @@ class HDF5Dataset(Dataset):
         transform: PyTorch transform to apply to every data instance (default=None).
     """
 
-    def __init__(self, dataset_root, split, transform=None):
+    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False):
         super().__init__()
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
+        self.use_clear_sky = use_clear_sky
         self.dataset_root = dataset_root
         self.split = split
         self.transform = transform
@@ -75,7 +76,21 @@ class HDF5Dataset(Dataset):
             self._add_data_infos(h5dataset_fp)
 
     def __getitem__(self, index):
-        timestamp, irc, label = self.get_data(index)
+        timestamp, irc_raw, label, clear_sky = self.get_data(index)
+
+        if self.use_clear_sky:
+            irc_raw[irc_raw==0]=255.0
+            irc = irc_raw - clear_sky
+
+            # Scale to [0,1]
+            irc[irc_raw=255] = -30.0
+            irc += 30.0
+            irc[irc > 130.0] = 130.0
+            irc /= 130.0
+        else:
+            # Scale to [0,1]
+            irc = irc_raw / 255.0
+            irc[irc_raw == 255] = 0.0
 
         if self.transform:
             irc = self.transform(irc)
@@ -105,6 +120,7 @@ class HDF5Dataset(Dataset):
                 h5_file["timestamp"][i],
                 np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),
                 h5_file["labels0"][i].astype(np.long),
+                h5_file["clear_sky"][i].astype(np.long) if self.use_clear_sky else None,
             )
 
 

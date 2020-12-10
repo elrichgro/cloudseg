@@ -48,6 +48,7 @@ def get_config(config_file):
     if not os.path.isdir(config["dataset_root"]):
         config["dataset_root"] = os.path.join(DATASET_PATH, config["dataset_root"])
     config["log_dir"] = config.get("log_dir", os.path.join(PROJECT_PATH, "training_logs"))
+    config["use_clear_sky"] = config.get("use_clear_sky", False)
     return argparse.Namespace(**config)
 
 

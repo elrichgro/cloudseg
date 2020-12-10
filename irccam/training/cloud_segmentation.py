@@ -12,21 +12,15 @@ class CloudSegmentation(pl.LightningModule):
     def __init__(self, args):
         super(CloudSegmentation, self).__init__()
         self.args = args
-        trans = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
+        trans = transforms.Compose([transforms.ToTensor(),])
         dataset_class = get_dataset_class(args.dataset_class)
-        self.dataset_train = dataset_class(args.dataset_root, "train", trans)
-        self.dataset_val = dataset_class(args.dataset_root, "val", trans)
-        self.dataset_test = dataset_class(args.dataset_root, "test", trans)
+        self.dataset_train = dataset_class(args.dataset_root, "train", trans, args.use_clear_sky)
+        self.dataset_val = dataset_class(args.dataset_root, "val", trans, args.use_clear_sky)
+        self.dataset_test = dataset_class(args.dataset_root, "test", trans, args.use_clear_sky)
 
         self.model = get_model(args.model_name, args)
 
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(
-            reduction="mean", ignore_index=-1
-        )
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-1)
         # TODO: metrics
 
     def training_step(self, batch, batch_idx):
@@ -53,10 +47,7 @@ class CloudSegmentation(pl.LightningModule):
 
     def validation_step_end(self, outputs):
         mask = outputs["labels"] != -1
-        val_iou = iou(
-            torch.argmax(outputs["preds"], 1)[mask],
-            outputs["labels"][mask],
-        )
+        val_iou = iou(torch.argmax(outputs["preds"], 1)[mask], outputs["labels"][mask],)
         self.log("val_iou", val_iou, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
@@ -72,28 +63,12 @@ class CloudSegmentation(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.args.learning_rate)
 
     def train_dataloader(self):
-        return DataLoader(
-            self.dataset_train,
-            self.args.batch_size,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=True,
-        )
+        return DataLoader(self.dataset_train, self.args.batch_size, shuffle=True, pin_memory=True, drop_last=True,)
 
     def val_dataloader(self):
-        return DataLoader(
-            self.dataset_val,
-            self.args.batch_size_val,
-            shuffle=False,
-            pin_memory=True,
-            drop_last=False,
-        )
+        return DataLoader(self.dataset_val, self.args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,)
 
     def test_dataloader(self):
         return DataLoader(
-            self.dataset_test,
-            self.args.batch_size_val,
-            shuffle=False,
-            pin_memory=True,
-            drop_last=False,
+            self.dataset_test, self.args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
         )
