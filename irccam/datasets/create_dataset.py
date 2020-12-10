@@ -31,13 +31,19 @@ from pytz import timezone
 
 from sklearn.model_selection import train_test_split
 
-from datasets.filesystem import get_contained_dirs, get_contained_files
-from irccam.datasets.image_processing import process_irccam_img, process_vis_img, sun_correction, process_irccam_label, \
-    apply_common_mask
+from irccam.datasets.filesystem import get_contained_dirs, get_contained_files
+from irccam.datasets.image_processing import (
+    process_irccam_img,
+    process_vis_img,
+    sun_correction,
+    process_irccam_label,
+    apply_common_mask,
+)
 from irccam.datasets.dataset_filter import (
     filter_sun,
     filter_ignored_days,
-    filter_sparse, filter_manual,
+    filter_sparse,
+    filter_manual,
 )
 from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
 
@@ -58,7 +64,8 @@ def create_dataset(dataset_name="dataset_v1", all_labels=False, sizes=(0.6, 0.2,
         os.makedirs(path)
 
     success = Parallel(n_jobs=4)(
-        delayed(process_day)(d, i, len(days), dataset_name, all_labels) for i, d in enumerate(days))
+        delayed(process_day)(d, i, len(days), dataset_name, all_labels) for i, d in enumerate(days)
+    )
     print(success)
     # Save splits
     days_ok = [x for x, y in zip(days, success) if y]
@@ -84,7 +91,7 @@ def process_day(day, i, n, dataset_name, all_labels):
     if not os.path.exists(previews_path):
         os.makedirs(previews_path)
 
-    #fine_filter_data = pd.read_csv("../../data/raw/davos/days.csv")
+    # fine_filter_data = pd.read_csv("../../data/raw/davos/days.csv")
 
     with h5py.File(os.path.join(RAW_DATA_PATH, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
         irc_raw = fr["BT"]
@@ -161,8 +168,15 @@ def process_day(day, i, n, dataset_name, all_labels):
             apply_common_mask(vis_img)
 
             comparison_image = concat_images(irc_img, vis_img, label1_image, label2_image, label3_image, label4_image)
-            cv2.putText(comparison_image, irc_ts.strftime(PRETTY_FORMAT), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        (0, 0, 255), 2)
+            cv2.putText(
+                comparison_image,
+                irc_ts.strftime(PRETTY_FORMAT),
+                (10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 255),
+                2,
+            )
             video_out.write(comparison_image)  # Write out frame to video
             # save_image_to_dataset(comparison_image, previews_path, vis_ts, "preview")
 
@@ -248,12 +262,9 @@ def valid_days():
 
 def get_vis_timestamps(day):
     filenames = [
-        file
-        for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
-        if file.endswith("_0.jpg")
+        file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")
     ]
-    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
-                  for filename in filenames]
+    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT)) for filename in filenames]
     timestamps.sort()
     return timestamps
 
