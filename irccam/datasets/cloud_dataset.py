@@ -120,7 +120,7 @@ class HDF5Dataset(Dataset):
                 h5_file["timestamp"][i],
                 np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),
                 h5_file["labels0"][i].astype(np.long),
-                h5_file["clear_sky"][i].astype(np.long) if self.use_clear_sky else None,
+                np.nan_to_num(h5_file["clear_sky"][i], copy=False, nan=255.0) if self.use_clear_sky else None,
             )
 
 
