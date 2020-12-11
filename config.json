@@ -3,10 +3,10 @@
   "batch_size_val": 8,
   "num_epochs": 16,
   "model_name": "unet",
-  "dataset_root": "dataset_hdf5",
+  "dataset_root": "/mnt/ds3lab-scratch/llodrant/data/datasets/optimized_2",
   "learning_rate": 0.01,
   "experiment_name": "test-experiment",
   "dataset_class": "hdf5",
-  "nth_sample": 100,
+  "log_dir": "/mnt/ds3lab-scratch/llodrant/data/training_logs",
   "use_clear_sky": true
 }

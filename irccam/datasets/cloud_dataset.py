@@ -12,7 +12,7 @@ Inspiration https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f
 
 
 class HDF5Dataset(Dataset):
-    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False, mask_sun=True):
+    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False, use_sun_mask=True):
         super().__init__()
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
@@ -27,7 +27,7 @@ class HDF5Dataset(Dataset):
         self.length = 0
         self.offsets = []
 
-        self.mask_sun = mask_sun
+        self.use_sun_mask = use_sun_mask
 
         self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
         for h5dataset_fp in self.files:
@@ -35,6 +35,15 @@ class HDF5Dataset(Dataset):
 
     def __getitem__(self, index):
         timestamp, irc_raw, label, clear_sky, sun_mask = self.get_data(index)
+
+        # TODO when to apply mask and fill in nans, here or after clear sky modifications
+        if self.use_sun_mask:
+            irc_raw[sun_mask] = np.nan
+            label[sun_mask] = -1
+
+        np.nan_to_num(label, copy=False, nan=255.0)
+        np.nan_to_num(irc_raw, copy=False, nan=255.0)
+        label = label.astype(np.long)
 
         if self.use_clear_sky:
             irc_raw[irc_raw == 0] = 255.0
@@ -53,10 +62,6 @@ class HDF5Dataset(Dataset):
         if self.transform:
             irc = self.transform(irc)
             label = self.transform(label)
-
-        if self.mask_sun:
-            irc[sun_mask] = np.nan
-            label[sun_mask] = -1
 
         return {"index": index, "timestamp": timestamp, "irc": irc, "label": label}
 
@@ -83,7 +88,7 @@ class HDF5Dataset(Dataset):
                 h5_file["irc"][i],
                 h5_file["selected_label"][i],
                 h5_file["clear_sky"][i] if self.use_clear_sky else None,
-                h5_file["sun_mask"][i] if self.mask_sun else None,
+                h5_file["sun_mask"][i] if self.use_sun_mask else None,
             )
 
 
