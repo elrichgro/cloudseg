@@ -46,3 +46,25 @@ currently:
         │   └── ...
         └── ...
 ```
+
+# Dataset variables
+### main
+ - timestamps - array of timestamp is format `%Y%m%d%H%M%S`
+ - irc - normalized irc image, 0-255 float32
+ - vis - reference rgb image
+ - clear_sky - normalized clear sky model, 0-255 float32
+ - ir_label - labels produced by Julians treshold algo
+ - selected_label - manually selected label
+ - sun_mask - boolean array, true where the sun is
+ - label(0-3) - rgb produced label, in order (2.35, 2.75, 3, adaptive)
+ 
+ 
+### optimized
+ - timestamps
+ - irc
+ - selected_label
+ - sun_mask
+ 
+All labels have the format of: -1 mask, 0 sky, 1 clouds
+
+All images have nan for mask 

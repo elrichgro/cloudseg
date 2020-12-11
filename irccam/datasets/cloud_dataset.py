@@ -1,8 +1,16 @@
+import cv2
 from torch.utils.data import Dataset
 import os
 import h5py
 import numpy as np
 from bisect import bisect_right
+
+def create_label_image(labels):
+    img = np.zeros((labels.shape[0], labels.shape[1], 3))
+    img[:, :, 0] = labels * 255
+    img[np.where(labels == -1)] = float("nan")
+    return img
+
 
 """
 Implemented the dataset from daily H5 files
@@ -93,10 +101,10 @@ class HDF5Dataset(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = HDF5Dataset("../../data/datasets/main_2", "train")
+    dataset = HDF5Dataset("../../data/datasets/main_3", "test", use_sun_mask=True)
     print(len(dataset))
-    print(dataset[23]["label"])
+    print(dataset[14]["timestamp"])
 
-    dataset = HDF5Dataset("../../data/datasets/optimized_2", "train")
+    dataset = HDF5Dataset("../../data/datasets/optimized_3", "test")
     print(len(dataset))
-    print(dataset[23]["label"])
+    print(dataset[23]["timestamp"])

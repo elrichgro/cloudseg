@@ -49,19 +49,19 @@ Find sun on IR and replaces it with clear sky
 """
 
 
-def sun_correction(vis_img, ir_img, cs_img, labels, treshold=235):
+def sun_correction(vis_img, ir_img, cs_img, labels, threshold=235):
     # find the highsest 50 pixels
     img = ir_img.copy()
     img = cv2.GaussianBlur(img, (3, 3), 0)
     (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(img)
-    if maxVal > treshold:
+    if maxVal > threshold:
         # lets call this a sun
         cv2.circle(img, maxLoc, 40, -1337, -1)
-
         # draw circle on vis
         cv2.circle(vis_img, maxLoc, 40, (0, 0, 255), 3)
         return img == -1337
-    return np.ones(img.shape, dtype=bool)
+
+    return np.zeros(img.shape, dtype=bool)
 
 
 def normalize_irccam_image(img_ir):
