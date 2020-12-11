@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import datetime
 
 from irccam.training.cloud_segmentation import CloudSegmentation
-from irccam.utils.definitions import *
+from irccam.utils.constants import *
 
 
 def train(config):

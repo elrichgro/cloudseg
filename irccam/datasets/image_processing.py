@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from irccam.utils.definitions import *
+from irccam.utils.constants import *
 from irccam.datasets.masks import common_mask, background_mask
 
 
@@ -93,6 +93,6 @@ def apply_common_mask(img, fill = np.nan):
 
 
 def transform_perspective(img, shape):
-    matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/trans_matrix.csv")
+    matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/resources/trans_matrix.csv")
     M = np.loadtxt(matrix_file, delimiter=",")
     return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)

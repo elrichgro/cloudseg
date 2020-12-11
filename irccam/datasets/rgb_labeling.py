@@ -1,11 +1,3 @@
-"""
-Takes the RGB image and produces labels for each pixel using the formula Julian provided
-"""
-"""
-Filtering of images based on various criteria
-"""
-
-import os
 import cv2
 import numpy as np
 

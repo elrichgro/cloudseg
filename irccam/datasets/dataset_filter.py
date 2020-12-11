@@ -2,35 +2,16 @@
 Filtering of images based on various criteria
 """
 
-import numpy as np
+import pandas as pd
 
-from irccam.utils.definitions import *
+from irccam.utils.constants import *
 from astral.sun import sun
-from astral import LocationInfo
 from datetime import datetime, timedelta
-
-location = LocationInfo("Davos", "Switzerland", "Europe/Zurich", 46.813492, 9.844433)
-
-
-def get_ignored_days():
-    filename = os.path.join(
-        PROJECT_PATH, "irccam", "datasets", "ignored_days.txt"
-    )
-    with open(filename) as f:
-        content = f.readlines()
-    content = [ts.strip() for ts in content]
-    return content
-
-
-def filter_ignored_days(items, ignore_list=None):
-    if ignore_list is None:
-        ignore_list = get_ignored_days()
-    return [item for item in items if item not in ignore_list]
 
 
 def filter_sun(timestamps, day):
     date = datetime.strptime(day, TIMESTAMP_FORMAT_DAY)
-    astral_data = sun(location.observer, date=date)
+    astral_data = sun(LOCATION.observer, date=date)
     return [(vis_ts, ir_ts) for vis_ts, ir_ts in timestamps if astral_data["sunrise"] < vis_ts < astral_data["sunset"]]
 
 
@@ -44,26 +25,27 @@ def filter_sparse(timestamps):
         if (vis_ts - ok[-1][0]) > timedelta(minutes=9):
             ok.append((vis_ts, ir_ts))
 
-    print(len(timestamps), len(ok))
     return ok
 
 
-def filter_manual(data, day, timestamps):
-    row = data[data['Name'] == day + "_preview.mp4"]
-    if row.shape[0] > 0:
+def filter_manual(day, timestamps):
+    filename = os.path.join(PROJECT_PATH, "irccam/datasets/resources/filter_manual.csv")
+    data = pd.read_csv(filename, dtype={'DAY': 'str', 'START_TS': 'str', 'END_TS': 'str', 'DELETED': 'str'},
+                       na_values={'DELETED': []}, keep_default_na=False)
+
+    row = data[data['DAY'] == day]
+    if row.shape[0] > 0 and timestamps:
         info = row.iloc[0]
         bad = info.BAD == 1
-        tresh = 3 if np.isnan(info.TRESH) else int(info.TRESH)
-        start = 0 if np.isnan(info.START) else int(info.START * 3)
-        end = len(timestamps) - 1 if np.isnan(info.END) else int(info.END * 3)
+        if bad:
+            return [], None
 
-        end = min(len(timestamps) - 1, end)
-        end = max(0, end)
-        start = min(len(timestamps) - 1, start)
-        start = max(0, start)
+        start = TIMEZONE.localize(datetime.strptime(info.START_TS, TIMESTAMP_FORMAT))
+        end = TIMEZONE.localize(datetime.strptime(info.END_TS, TIMESTAMP_FORMAT))
+        timestamps = [x for x in timestamps if start <= x[0] < end]
 
-        stamps = None
-        if info.COMMENT.startswith("delete"):
-            stamps = set(info.COMMENT.strip().split(" ")[1:])
-        return bad, start, end, tresh - 1, stamps
-    return True, None, None, None, None
+        if info.DELETED:
+            deleted = set(info.DELETED.strip().split(";"))
+            timestamps = [x for x in timestamps if x[0].strftime("%H:%M:%S") not in deleted]
+        return timestamps, info.LABEL_INDEX
+    return [], None

@@ -1,5 +1,4 @@
 from torch.utils.data import Dataset
-import cv2
 import os
 import h5py
 import numpy as np
@@ -12,68 +11,10 @@ Inspiration https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f
 """
 
 
-class CloudDataset(Dataset):
-    def __init__(self, dataset_root, split, transform=None):
-        assert split in ["train", "val", "test"], "Invalid split {}".format(split)
-
-        self.dataset_root = dataset_root
-        self.split = split
-        self.transform = transform
-        self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
-        self.files
-
-    def __len__(self):
-        return len(self.timestamps)
-
-    def __getitem__(self, index):
-        timestamp = self.timestamps[index]
-
-        irc = cv2.imread(self.get_item_path(timestamp, "irc"))
-        irc = cv2.cvtColor(irc, cv2.COLOR_BGR2GRAY)
-        label = np.load(self.get_item_path(timestamp, "label")).astype(np.long)
-
-        if self.transform:
-            irc = self.transform(irc)
-            label = self.transform(label)
-
-        assert irc is not None, "Could not load irc for timestamp {}".format(timestamp)
-        assert label is not None, "Could not load label for timestamp {}".format(timestamp)
-
-        return {"id": index, "timestamp": timestamp, "irc": irc, "label": label}
-
-    def get_item_path(self, timestamp, modality):
-        modality_suffix = {"label": "label.npy", "irc": "irc.tif"}
-        return os.path.join(
-            self.dataset_root, self.split, timestamp[:8], "{}_{}".format(timestamp, modality_suffix[modality]),
-        )
-
-
-class HDF5Dataset(Dataset):
-    """Represents an abstract HDF5 dataset.
-
-    Input params
-        data_cache_size: Number of HDF5 files that can be cached in the cache (default=3).
-        transform: PyTorch transform to apply to every data instance (default=None).
-    """
-
-    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False):
-        super().__init__()
-        assert split in ["train", "val", "test"], "Invalid split {}".format(split)
-
+class HDF5DatasetBase(Dataset):
+    def __init__(self, transform, use_clear_sky):
         self.use_clear_sky = use_clear_sky
-        self.dataset_root = dataset_root
-        self.split = split
         self.transform = transform
-        self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
-
-        self.data_info = []
-        self.transform = transform
-        self.length = 0
-        self.offsets = []
-
-        self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
-        for h5dataset_fp in self.files:
-            self._add_data_infos(h5dataset_fp)
 
     def __getitem__(self, index):
         timestamp, irc_raw, label, clear_sky = self.get_data(index)
@@ -97,6 +38,34 @@ class HDF5Dataset(Dataset):
             label = self.transform(label)
 
         return {"index": index, "timestamp": timestamp, "irc": irc, "label": label}
+
+    def get_data(self, index):
+        raise NotImplementedError
+
+
+class HDF5Dataset(HDF5DatasetBase):
+    """Represents an abstract HDF5 dataset.
+
+    Input params
+        data_cache_size: Number of HDF5 files that can be cached in the cache (default=3).
+        transform: PyTorch transform to apply to every data instance (default=None).
+    """
+
+    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False):
+        super().__init__(transform, use_clear_sky)
+        assert split in ["train", "val", "test"], "Invalid split {}".format(split)
+
+        self.dataset_root = dataset_root
+        self.split = split
+        self.days = np.loadtxt(os.path.join(dataset_root, split + ".txt"), dtype="str")
+
+        self.data_info = []
+        self.length = 0
+        self.offsets = []
+
+        self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
+        for h5dataset_fp in self.files:
+            self._add_data_infos(h5dataset_fp)
 
     def __len__(self):
         return self.length
@@ -124,8 +93,41 @@ class HDF5Dataset(Dataset):
             )
 
 
+class OptimizedDataset(HDF5DatasetBase):
+    """Represents an optimized single file dataset
+    Input params
+        transform: PyTorch transform to apply to every data instance (default=None).
+    """
+
+    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False):
+        super().__init__(transform, use_clear_sky)
+        assert split in ["train", "val", "test"], "Invalid split {}".format(split)
+
+        self.dataset_root = dataset_root
+        self.split = split
+
+        filename = os.path.join(dataset_root, split + ".h5")
+        self.file = h5py.File(filename, "r")
+        self.length = self.file['timestamps'].shape[0]
+
+    def __len__(self):
+        return self.length
+
+    def get_data(self, i):
+        h5_file = self.file
+        return (
+            h5_file["timestamps"][i],
+            np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),
+            h5_file["rgb_labels"][i].astype(np.long),
+            np.nan_to_num(h5_file["clear_sky"][i], copy=False, nan=255.0) if self.use_clear_sky else None,
+        )
+
+
 if __name__ == "__main__":
-    dataset = HDF5Dataset("../../data/datasets/v2", "train")
-    print(dataset.days)
+    dataset = HDF5Dataset("../../data/datasets/main_1", "train")
+    print(len(dataset))
+    print(dataset[23]["timestamp"])
+
+    dataset = OptimizedDataset("../../data/datasets/optimized_main_1", "train")
     print(len(dataset))
     print(dataset[23]["timestamp"])

@@ -20,7 +20,6 @@ Still to do:
 import cv2
 import math
 import numpy as np
-import pandas as pd
 import h5py
 import sys
 import uuid
@@ -29,51 +28,47 @@ from joblib import Parallel, delayed
 from bisect import bisect_left
 
 from datetime import datetime, timedelta
-from pytz import timezone
 
 from sklearn.model_selection import train_test_split
 
-from datasets.filesystem import get_contained_dirs, get_contained_files
+from datasets.helpers import get_contained_dirs, get_contained_files
+from datasets.optimize_dataset import optimize_dataset
 from irccam.datasets.image_processing import process_irccam_img, process_vis_img, sun_correction, process_irccam_label, \
     apply_common_mask
 from irccam.datasets.dataset_filter import (
     filter_sun,
-    filter_ignored_days,
     filter_sparse, filter_manual,
 )
 from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
 
-from irccam.utils.definitions import *
-
-tz = timezone("Europe/Zurich")
-
-USE_MANUAL_FILTER = True
-APPEND_ALL_LABELS = not USE_MANUAL_FILTER or True
+from irccam.utils.constants import *
 
 
-def create_dataset(dataset_name="dataset_v1", test=False, sizes=(0.6, 0.2, 0.2), changelog = ""):
+def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog="", use_manual_filter=True):
     assert sum(sizes) == 1, "Split sizes to not sum up to 1"
 
     print("Creating dataset")
-    days = valid_days()
+    days = get_days()
 
     if test:
         days = days[:6]
-        dataset_name = dataset_name + "-" + str(uuid.uuid4())
+        dataset_name = dataset_name + "_" + str(uuid.uuid4())
+        path = os.path.join(DATASET_PATH, "../test/", dataset_name)
+    else:
+        path = os.path.join(DATASET_PATH, dataset_name)
 
     # Create data/previews directories if it doesn't exist yet
-    path = os.path.join(DATASET_PATH, dataset_name)
     previews_path = os.path.join(path, "previews")
     if not os.path.exists(previews_path):
         os.makedirs(previews_path)
 
     if not test:
         with open(os.path.join(path, "changes.txt"), "w") as f:
-            f.write(changes)
+            f.write(changelog)
 
-    success = Parallel(n_jobs=6)(
-        delayed(process_day)(d, i, len(days), dataset_name) for i, d in enumerate(days))
-    print(success)
+    success = Parallel(n_jobs=2)(
+        delayed(process_day)(path, d, i, len(days), use_manual_filter) for i, d in enumerate(days))
+    print("Successfully added {}/{} days to the dataset".format(sum(success), len(days)))
     # Save splits
     days_ok = [x for x, y in zip(days, success) if y]
     train, test, val = sizes
@@ -84,16 +79,13 @@ def create_dataset(dataset_name="dataset_v1", test=False, sizes=(0.6, 0.2, 0.2),
     np.savetxt(os.path.join(path, "val.txt"), days_val, fmt="%s")
 
 
-def process_day(day, i, n, dataset_name):
+def process_day(data_path, day, i, n, use_manual_filter):
     print("Processing day {} - {}/{}".format(day, i + 1, n))
 
     # create output directory
-    data_path = os.path.join(DATASET_PATH, dataset_name)
     data_filename = os.path.join(data_path, "{}.h5".format(day))
     if os.path.exists(data_filename):
         return True
-
-    preview_filename = os.path.join(data_path, "previews", "{}_preview.mp4".format(day))
 
     with h5py.File(os.path.join(RAW_DATA_PATH, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
         irc_raw = fr["BT"]
@@ -106,46 +98,25 @@ def process_day(day, i, n, dataset_name):
         filtered_timestamps = filter_sun(matching_timestamps, day)
         filtered_timestamps = filter_sparse(filtered_timestamps)
 
-        n = len(filtered_timestamps)
-        if n == 0:
-            return False
-
-        if USE_MANUAL_FILTER:
-            fine_filter_data = pd.read_csv("../../data/raw/davos/days-with-ignore.csv", dtype={'COMMENT': 'str'})
-            fine_filter_data['COMMENT'] = fine_filter_data['COMMENT'].fillna("")
-            bad, start, end, label_selected, ignore_timestamps = filter_manual(fine_filter_data, day,
-                                                                               filtered_timestamps)
-            # so Henry work is not for nothing backup
-            with open("filter_manual.csv", "a") as f:
-                ts_start = filtered_timestamps[start][0].strftime(TIMESTAMP_FORMAT) if start is not None else ""
-                ts_end = filtered_timestamps[end][0].strftime(TIMESTAMP_FORMAT) if end is not None else ""
-                ignores = ";".join(ignore_timestamps) if ignore_timestamps is not None else ""
-                f.write(
-                    "{},{},{},{},{},{},{},{}\n".format(day, bad, start, end, ts_start, ts_end, label_selected, ignores))
-
-            if bad:
-                return False
-            filtered_timestamps = filtered_timestamps[start:end]
-
-            if ignore_timestamps is not None and len(ignore_timestamps) > 0:
-                filtered_timestamps = [x for x in filtered_timestamps if x[1][0].strftime("%H:%M:%S") not in ignore_timestamps]
-
+        label_selected = 3
+        if use_manual_filter:
+            filtered_timestamps, label_selected = filter_manual(day, filtered_timestamps)
 
         n = len(filtered_timestamps)
         if n == 0:
             return False
 
         timestamps = []
-        n_labels = 4 if APPEND_ALL_LABELS else 1
         vis_images = np.empty((n, 420, 420, 3), dtype="float32")
         irc_images = np.empty((n, 420, 420), dtype="float32")
         clear_skies = np.empty((n, 420, 420), dtype="float32")
-        labels_out = [np.empty((n, 420, 420), dtype="byte") for _ in range(n_labels)]
+        labels_out = [np.empty((n, 420, 420), dtype="byte") for _ in range(4)]
         ir_labels = np.empty((n, 420, 420), dtype="byte")
 
         # We'll output a preview video
+        preview_filename = os.path.join(data_path, "previews", "{}_preview.mp4".format(day))
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Be sure to use lower case
-        video_out = cv2.VideoWriter(preview_filename, fourcc, 3, (420 * (3 + n_labels), 420))
+        video_out = cv2.VideoWriter(preview_filename, fourcc, 3, (420 * 4, 420 * 2))
 
         print("Processing images")
         for i, (vis_ts, (irc_ts, irc_idx)) in enumerate(filtered_timestamps):
@@ -177,34 +148,27 @@ def process_day(day, i, n, dataset_name):
             # apply common mask to vis, cannot do it before to not mess with adaptive labeling
             apply_common_mask(vis_img)
 
-            if APPEND_ALL_LABELS:
-                if USE_MANUAL_FILTER:
-                    sel = label_images[label_selected]
-                    cv2.rectangle(
-                        sel,
-                        (0, 0),
-                        sel.shape[:2],
-                        (0, 255, 0),
-                        10)
-                comparison_image = concat_images(irc_img, vis_img, ir_label_image, *label_images)
-            else:
-                comparison_image = concat_images(irc_img, vis_img, ir_label_image, label_images[label_selected])
+            comparison_image = concat_images({
+                "irccam": irc_img,
+                "rgb": vis_img,
+                "ir_label": ir_label_image,
+                "tresh 2.35": label_images[0],
+                "tresh 2.7": label_images[1],
+                "tresh 3": label_images[2],
+                "adaptive": label_images[3],
+                "selected " + str(label_selected): label_images[label_selected]
+            })
 
-            cv2.putText(comparison_image, irc_ts.strftime(PRETTY_FORMAT), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        (0, 0, 255), 2)
+            cv2.putText(comparison_image, irc_ts.strftime(PRETTY_FORMAT), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             video_out.write(comparison_image)  # Write out frame to video
-            # save_image_to_dataset(comparison_image, previews_path, vis_ts, "preview")
 
             vis_images[i, :, :, :] = vis_img
             irc_images[i, :, :] = irc_img
             clear_skies[i, :, :] = clear_sky
             ir_labels[i, :, :] = ir_label
 
-            if APPEND_ALL_LABELS:
-                for j, label in enumerate(labels):
-                    labels_out[j][i, :, :] = label
-            else:
-                labels_out[0][i, :, :] = labels[label_selected]
+            for j, label in enumerate(labels):
+                labels_out[j][i, :, :] = label
 
         video_out.release()
 
@@ -215,6 +179,7 @@ def process_day(day, i, n, dataset_name):
             fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
             fw.create_dataset("clear_sky", data=clear_skies, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("ir_label", data=ir_labels, chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("selected_label", data=labels_out[label_selected], chunks=(1, 420, 420), compression="lzf")
             for j, data in enumerate(labels_out):
                 fw.create_dataset("labels" + str(j), data=data, chunks=(1, 420, 420), compression="lzf")
 
@@ -233,16 +198,19 @@ def save_image_to_dataset(img, path, timestamp, extension):
         raise Exception("Failed to save image {}".format(filename))
 
 
-def concat_images(*images):
+def concat_images(images):
     processed = []
-    for i in images:
-        i = np.nan_to_num(i, copy=True, nan=255)
+    for name, img in images.items():
+        i = np.nan_to_num(img, copy=True, nan=255)
         if i.ndim == 2:
             i = cv2.cvtColor(i, cv2.COLOR_GRAY2RGB)
         i = i.astype(np.uint8)
+        cv2.putText(i, name, (10, 410), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 0, 50), 2)
         processed.append(i)
 
-    return np.concatenate(processed, axis=1)
+    n = len(processed) // 2
+    a, b = processed[:n], processed[n:]
+    return cv2.vconcat((cv2.hconcat(a), cv2.hconcat(b)))
 
 
 def create_label_image(labels):
@@ -266,12 +234,11 @@ def match_timestamps(ir_ts, vis_ts):
     return valid
 
 
-def valid_days():
+def get_days():
     vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb"))
     ir_days = [f[7:-8] for f in get_contained_files(os.path.join(RAW_DATA_PATH, "irccam"))]
 
     valid = list(sorted(set(vis_days).intersection(ir_days)))
-    valid = filter_ignored_days(valid)
     return valid
 
 
@@ -281,7 +248,7 @@ def get_vis_timestamps(day):
         for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
         if file.endswith("_0.jpg")
     ]
-    timestamps = [tz.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
+    timestamps = [TIMEZONE.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
                   for filename in filenames]
     timestamps.sort()
     return timestamps
@@ -299,7 +266,7 @@ def convert_timestamp(day, timestamp):
     seconds = round(24 * 60 * 60 * (timestamp - math.floor(timestamp)))
     seconds_delta = timedelta(0, seconds)
     day_timestamp = datetime.strptime(day, "%Y%m%d")
-    return tz.localize(day_timestamp + seconds_delta)
+    return TIMEZONE.localize(day_timestamp + seconds_delta)
 
 
 def get_vis_img(timestamp):
@@ -335,14 +302,17 @@ if __name__ == "__main__":
         create_dataset(dataset_name="test", test=True)
     else:
         name = "main_"
-        print("1 for selected label only (default), 2 for all labels: ", end='')
-        if input().strip() == "2":
-            name = "complete_"
-        else:
-            APPEND_ALL_LABELS = False
+        optimize = False
 
-        print("Input dataset classifier: ", end='')
+        print("Dataset classifier: ", end='')
         classifier = input().strip()
         print("Dataset changes: ", end='')
         changes = input().strip()
+
+        print("Would you also like to generate an training optimized version: (y)/n", end='')
+        if input().strip() != "n":
+            optimize = True
+
         create_dataset(dataset_name=name + classifier, changelog=changes)
+        if optimize:
+            optimize_dataset(name + classifier, "optimized_" + classifier)
