@@ -106,15 +106,15 @@ class OptimizedDataset(HDF5DatasetBase):
         self.dataset_root = dataset_root
         self.split = split
 
-        filename = os.path.join(dataset_root, split + ".h5")
-        self.file = h5py.File(filename, "r")
+        self.filename = os.path.join(dataset_root, split + ".h5")
+        self.file = h5py.File(self.filename, "r")
         self.length = self.file['timestamps'].shape[0]
 
     def __len__(self):
         return self.length
 
     def get_data(self, i):
-        h5_file = self.file
+        h5_file = h5py.File(self.filename, "r")
         return (
             h5_file["timestamps"][i],
             np.nan_to_num(h5_file["irc"][i], copy=False, nan=255.0),
