@@ -47,13 +47,23 @@ def filter_sparse(timestamps):
     print(len(timestamps), len(ok))
     return ok
 
+
 def filter_manual(data, day, timestamps):
     row = data[data['Name'] == day + "_preview.mp4"]
     if row.shape[0] > 0:
         info = row.iloc[0]
         bad = info.BAD == 1
-        tresh = 4 if np.isnan(info.TRESH) else int(info.TRESH)
-        start= 0 if np.isnan(info.START) else int(info.START * 3)
+        tresh = 3 if np.isnan(info.TRESH) else int(info.TRESH)
+        start = 0 if np.isnan(info.START) else int(info.START * 3)
         end = len(timestamps) - 1 if np.isnan(info.END) else int(info.END * 3)
-        return bad, start, end, tresh
-    return True, None, None, None
+
+        end = min(len(timestamps) - 1, end)
+        end = max(0, end)
+        start = min(len(timestamps) - 1, start)
+        start = max(0, start)
+
+        stamps = None
+        if info.COMMENT.startswith("delete"):
+            stamps = set(info.COMMENT.strip().split(" ")[1:])
+        return bad, start, end, tresh - 1, stamps
+    return True, None, None, None, None
