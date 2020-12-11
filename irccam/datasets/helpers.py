@@ -1,9 +1,9 @@
 import os
-from irccam.datasets.cloud_dataset import HDF5Dataset
+from irccam.datasets.cloud_dataset import HDF5Dataset, OptimizedDataset
 
 
 def get_dataset_class(name):
-    datasets = {"hdf5": HDF5Dataset}
+    datasets = {"hdf5": HDF5Dataset, "optimized": OptimizedDataset}
     return datasets[name]
 
 
