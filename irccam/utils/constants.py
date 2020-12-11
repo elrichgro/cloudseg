@@ -1,4 +1,5 @@
 import os
+import h5py
 from pytz import timezone
 from astral import LocationInfo
 
@@ -13,3 +14,5 @@ PRETTY_FORMAT = "%d.%m.%Y %H:%M:%S"
 
 LOCATION = LocationInfo("Davos", "Switzerland", "Europe/Zurich", 46.813492, 9.844433)
 TIMEZONE = timezone("Europe/Zurich")
+
+LABEL_DATATYPE = h5py.enum_dtype({"CLOUD": 0, "SKY": 1, "MASK": -1}, basetype='i')

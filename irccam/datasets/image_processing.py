@@ -57,13 +57,11 @@ def sun_correction(vis_img, ir_img, cs_img, labels, treshold=235):
     if maxVal > treshold:
         # lets call this a sun
         cv2.circle(img, maxLoc, 40, -1337, -1)
-        circle = img == -1337
-        circle[common_mask == 255] = False
+
         # draw circle on vis
-        cv2.circle(vis_img, maxLoc, 30, (0, 0, 255), 3)
-        for label in labels:
-            label[circle] = 0
-        ir_img[circle] = 0
+        cv2.circle(vis_img, maxLoc, 40, (0, 0, 255), 3)
+        return img == -1337
+    return np.ones(img.shape, dtype=bool)
 
 
 def normalize_irccam_image(img_ir):

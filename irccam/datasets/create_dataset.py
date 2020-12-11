@@ -66,7 +66,7 @@ def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog=""
         with open(os.path.join(path, "changes.txt"), "w") as f:
             f.write(changelog)
 
-    success = Parallel(n_jobs=2)(
+    success = Parallel(n_jobs=6)(
         delayed(process_day)(path, d, i, len(days), use_manual_filter) for i, d in enumerate(days))
     print("Successfully added {}/{} days to the dataset".format(sum(success), len(days)))
     # Save splits
@@ -112,6 +112,7 @@ def process_day(data_path, day, i, n, use_manual_filter):
         clear_skies = np.empty((n, 420, 420), dtype="float32")
         labels_out = [np.empty((n, 420, 420), dtype="byte") for _ in range(4)]
         ir_labels = np.empty((n, 420, 420), dtype="byte")
+        sun_masks = np.empty((n, 420, 420), dtype="bool")
 
         # We'll output a preview video
         preview_filename = os.path.join(data_path, "previews", "{}_preview.mp4".format(day))
@@ -141,7 +142,8 @@ def process_day(data_path, day, i, n, use_manual_filter):
                       create_rgb_label_julian(vis_img, cloud_ref=3),
                       create_label_adaptive(vis_img)]
 
-            sun_correction(vis_img, irc_img, clear_sky, labels)
+            sun_mask = sun_correction(vis_img, irc_img, clear_sky, labels)
+
             label_images = [create_label_image(i) for i in labels]
             ir_label_image = create_label_image(ir_label)
 
@@ -166,6 +168,7 @@ def process_day(data_path, day, i, n, use_manual_filter):
             irc_images[i, :, :] = irc_img
             clear_skies[i, :, :] = clear_sky
             ir_labels[i, :, :] = ir_label
+            sun_masks[i, :, :] = sun_mask
 
             for j, label in enumerate(labels):
                 labels_out[j][i, :, :] = label
@@ -180,6 +183,7 @@ def process_day(data_path, day, i, n, use_manual_filter):
             fw.create_dataset("clear_sky", data=clear_skies, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("ir_label", data=ir_labels, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("selected_label", data=labels_out[label_selected], chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset("sun_mask", data=sun_masks, chunks=(1, 420, 420), compression="lzf")
             for j, data in enumerate(labels_out):
                 fw.create_dataset("labels" + str(j), data=data, chunks=(1, 420, 420), compression="lzf")
 
@@ -309,7 +313,7 @@ if __name__ == "__main__":
         print("Dataset changes: ", end='')
         changes = input().strip()
 
-        print("Would you also like to generate an training optimized version: (y)/n", end='')
+        print("Would you also like to generate an training optimized version (y)/n: ", end='')
         if input().strip() != "n":
             optimize = True
 

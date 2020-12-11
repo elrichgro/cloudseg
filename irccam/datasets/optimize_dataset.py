@@ -4,7 +4,9 @@ Takes a single label dataset and optimizes it for training
 
 import numpy as np
 import h5py
-from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
+from shutil import copyfile
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from irccam.utils.constants import *
 
@@ -22,34 +24,27 @@ def optimize_dataset(in_name, out_name=None):
     train_days = np.loadtxt(os.path.join(in_root, "train.txt"), dtype="str")
     test_days = np.loadtxt(os.path.join(in_root, "test.txt"), dtype="str")
     val_days = np.loadtxt(os.path.join(in_root, "val.txt"), dtype="str")
-    merge(train_days, in_root, os.path.join(out_root, "train.h5"))
-    merge(test_days, in_root, os.path.join(out_root, "test.h5"))
-    merge(val_days, in_root, os.path.join(out_root, "val.h5"))
+    process_set(np.concatenate((train_days, test_days, val_days)), in_root, out_root)
+
+    copyfile(os.path.join(in_root, "train.txt"), os.path.join(out_root, "train.txt"))
+    copyfile(os.path.join(in_root, "test.txt"), os.path.join(out_root, "test.txt"))
+    copyfile(os.path.join(in_root, "val.txt"), os.path.join(out_root, "val.txt"))
+    copyfile(os.path.join(in_root, "changes.txt"), os.path.join(out_root, "changes.txt"))
 
 
-def merge(days, in_root, out_name):
-    with h5py.File(out_name, "w") as f_out:
-        irc = f_out.create_dataset("irc", (0, 420, 420), chunks=(1, 420, 420), maxshape=(None, 420, 420), compression="lzf", dtype='float32')
-        clear_sky = f_out.create_dataset("clear_sky", (0, 420, 420), chunks=(1, 420, 420), maxshape=(None, 420, 420), compression="lzf", dtype='float32')
-        ir_labels = f_out.create_dataset("ir_labels", (0, 420, 420), chunks=(1, 420, 420), maxshape=(None, 420, 420), compression="lzf", dtype='int8')
-        rgb_labels = f_out.create_dataset("rgb_labels", (0, 420, 420), chunks=(1, 420, 420), maxshape=(None, 420, 420), compression="lzf", dtype='int8')
-        dt = h5py.string_dtype(encoding='ascii')
-        timestamps = f_out.create_dataset("timestamps", (0,), maxshape=(None,), dtype=dt)
-        for i, day in enumerate(days):
-            with h5py.File(os.path.join(in_root, "{}.h5".format(day)), "r") as f_in:
-                n = timestamps.shape[0]
-                m = f_in["timestamp"].shape[0]
-                irc.resize(n + m, axis=0)
-                irc[n:] = f_in["irc"]
-                clear_sky.resize(n + m, axis=0)
-                clear_sky[n:] = f_in["clear_sky"]
-                ir_labels.resize(n + m, axis=0)
-                ir_labels[n:] = f_in["ir_label"]
-                timestamps.resize(n + m, axis=0)
-                timestamps[n:] = f_in["timestamp"]
-                rgb_labels.resize(n + m, axis=0)
-                rgb_labels[n:] = f_in["selected_label"]
-            print("Finished processing day {}/{}. Added {} timestamps".format(i, len(days), m))
+def process_set(days, in_root, out_root):
+    Parallel(n_jobs=6)(delayed(process_day)(d, in_root, out_root) for d in tqdm(days))
+
+
+def process_day(day, in_root, out_root):
+    name = "{}.h5".format(day)
+    chunk_s = (1, 420, 420)
+    with h5py.File(os.path.join(in_root, name), "r") as f_in, h5py.File(os.path.join(out_root, name), "w") as f_out:
+        f_out.create_dataset("irc", data=f_in["irc"], chunks=chunk_s, compression="lzf")
+        f_out.create_dataset("clear_sky", data=f_in["clear_sky"], chunks=chunk_s, compression="lzf")
+        f_out.create_dataset("selected_label", data=f_in["selected_label"], chunks=chunk_s, compression="lzf", dtype=LABEL_DATATYPE)
+        f_out.create_dataset("sun_mask", data=f_in["sun_mask"], chunks=chunk_s, compression="lzf")
+        f_out.create_dataset("timestamp", data=f_in["timestamp"])
 
 
 if __name__ == "__main__":
