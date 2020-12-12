@@ -52,7 +52,7 @@ def train(config):
         checkpoint_callback=configure_checkpoints(hparams),
         gpus=hparams.gpus if torch.cuda.is_available() else None,
         max_epochs=hparams.num_epochs,
-        distributed_backend="ddp" if torch.cuda.is_available() else None,
+        distributed_backend="ddp" if hparams.cluster == True else None,
     )
 
     ## Data

@@ -61,6 +61,7 @@ class HDF5Dataset(Dataset):
             # Scale to [0,1]
             mi = -30
             ma = 100
+            np.num_to_nan(irc, copy=False, nan=mi)
             irc[irc_raw == 255] = mi
             irc[irc < mi] = mi
             irc[irc > ma] = ma
