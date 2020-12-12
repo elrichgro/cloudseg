@@ -9,5 +9,6 @@
   "experiment_name": "test-experiment",
   "dataset_class": "hdf5",
   "log_dir": "/mnt/ds3lab-scratch/llodrant/data/training_logs",
-  "use_clear_sky": false
+  "use_clear_sky": false,
+  "cluster": true
 }
