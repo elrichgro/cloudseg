@@ -47,15 +47,14 @@ class HDF5Dataset(Dataset):
 
         # TODO when to apply mask and fill in nans, here or after clear sky modifications
         if self.use_sun_mask:
-            irc_raw[sun_mask] = np.nan
-            label[sun_mask] = -1
+            irc_raw[sun_mask] = 0
+            label[sun_mask] = 0
 
         np.nan_to_num(label, copy=False, nan=255.0)
         np.nan_to_num(irc_raw, copy=False, nan=255.0)
         label = label.astype(np.long)
 
         if self.use_clear_sky:
-            irc_raw[irc_raw == 0] = 255.0
             irc = irc_raw - clear_sky
 
             # Scale to [0,1]
