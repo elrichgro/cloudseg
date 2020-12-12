@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 from bisect import bisect_right
 
+
 def create_label_image(labels):
     img = np.zeros((labels.shape[0], labels.shape[1], 3))
     img[:, :, 0] = labels * 255
@@ -58,10 +59,13 @@ class HDF5Dataset(Dataset):
             irc = irc_raw - clear_sky
 
             # Scale to [0,1]
-            irc[irc_raw == 255] = -30.0
-            irc += 30.0
-            irc[irc > 130.0] = 130.0
-            irc /= 130.0
+            mi = -30
+            ma = 100
+            irc[irc_raw == 255] = mi
+            irc[irc < mi] = mi
+            irc[irc > ma] = ma
+            irc -= mi
+            irc /= ma - mi
         else:
             # Scale to [0,1]
             irc = irc_raw / 255.0

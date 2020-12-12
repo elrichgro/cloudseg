@@ -1,10 +1,8 @@
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader
 import torch
 from torchvision import transforms
 from pytorch_lightning.metrics.functional.classification import iou
 
-from irccam.datasets.helpers import get_dataset_class
 from irccam.models.helpers import get_model
 
 
@@ -12,11 +10,6 @@ class CloudSegmentation(pl.LightningModule):
     def __init__(self, **kwargs):
         super(CloudSegmentation, self).__init__()
         self.save_hyperparameters()
-        trans = transforms.Compose([transforms.ToTensor(),])
-        dataset_class = get_dataset_class(self.hparams.dataset_class)
-        self.dataset_train = dataset_class(self.hparams.dataset_root, "train", trans, self.hparams.use_clear_sky)
-        self.dataset_val = dataset_class(self.hparams.dataset_root, "val", trans, self.hparams.use_clear_sky)
-        self.dataset_test = dataset_class(self.hparams.dataset_root, "test", trans, self.hparams.use_clear_sky)
 
         self.model = get_model(self.hparams.model_name, self.hparams)
 
@@ -60,12 +53,3 @@ class CloudSegmentation(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
-
-    def train_dataloader(self):
-        return DataLoader(self.dataset_train, self.hparams.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=4)
-
-    def val_dataloader(self):
-        return DataLoader(self.dataset_val, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=4)
-
-    def test_dataloader(self):
-        return DataLoader(self.dataset_test, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=4)

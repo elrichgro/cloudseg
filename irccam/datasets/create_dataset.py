@@ -31,13 +31,19 @@ from datetime import datetime, timedelta
 
 from sklearn.model_selection import train_test_split
 
-from datasets.helpers import get_contained_dirs, get_contained_files
-from datasets.optimize_dataset import optimize_dataset
-from irccam.datasets.image_processing import process_irccam_img, process_vis_img, sun_correction, process_irccam_label, \
-    apply_common_mask
+from irccam.datasets.helpers import get_contained_dirs, get_contained_files
+from irccam.datasets.optimize_dataset import optimize_dataset
+from irccam.datasets.image_processing import (
+    process_irccam_img,
+    process_vis_img,
+    sun_correction,
+    process_irccam_label,
+    apply_common_mask,
+)
 from irccam.datasets.dataset_filter import (
     filter_sun,
-    filter_sparse, filter_manual,
+    filter_sparse,
+    filter_manual,
 )
 from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
 
@@ -67,7 +73,8 @@ def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog=""
             f.write(changelog)
 
     success = Parallel(n_jobs=6)(
-        delayed(process_day)(path, d, i, len(days), use_manual_filter) for i, d in enumerate(days))
+        delayed(process_day)(path, d, i, len(days), use_manual_filter) for i, d in enumerate(days)
+    )
     print("Successfully added {}/{} days to the dataset".format(sum(success), len(days)))
     # Save splits
     days_ok = [x for x, y in zip(days, success) if y]
@@ -137,10 +144,12 @@ def process_day(data_path, day, i, n, use_manual_filter):
             ir_label = process_irccam_label(ir_label)
 
             # Create labels
-            labels = [create_rgb_label_julian(vis_img, cloud_ref=2.35),
-                      create_rgb_label_julian(vis_img, cloud_ref=2.7),
-                      create_rgb_label_julian(vis_img, cloud_ref=3),
-                      create_label_adaptive(vis_img)]
+            labels = [
+                create_rgb_label_julian(vis_img, cloud_ref=2.35),
+                create_rgb_label_julian(vis_img, cloud_ref=2.7),
+                create_rgb_label_julian(vis_img, cloud_ref=3),
+                create_label_adaptive(vis_img),
+            ]
 
             sun_mask = sun_correction(vis_img, irc_img, clear_sky, labels)
 
@@ -150,18 +159,28 @@ def process_day(data_path, day, i, n, use_manual_filter):
             # apply common mask to vis, cannot do it before to not mess with adaptive labeling
             apply_common_mask(vis_img)
 
-            comparison_image = concat_images({
-                "irccam": irc_img,
-                "rgb": vis_img,
-                "ir_label": ir_label_image,
-                "tresh 2.35": label_images[0],
-                "tresh 2.7": label_images[1],
-                "tresh 3": label_images[2],
-                "adaptive": label_images[3],
-                "selected " + str(label_selected): label_images[label_selected]
-            })
+            comparison_image = concat_images(
+                {
+                    "irccam": irc_img,
+                    "rgb": vis_img,
+                    "ir_label": ir_label_image,
+                    "tresh 2.35": label_images[0],
+                    "tresh 2.7": label_images[1],
+                    "tresh 3": label_images[2],
+                    "adaptive": label_images[3],
+                    "selected " + str(label_selected): label_images[label_selected],
+                }
+            )
 
-            cv2.putText(comparison_image, irc_ts.strftime(PRETTY_FORMAT), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.putText(
+                comparison_image,
+                irc_ts.strftime(PRETTY_FORMAT),
+                (10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 255),
+                2,
+            )
             video_out.write(comparison_image)  # Write out frame to video
 
             vis_images[i, :, :, :] = vis_img
@@ -182,7 +201,9 @@ def process_day(data_path, day, i, n, use_manual_filter):
             fw.create_dataset("vis", data=vis_images, chunks=(1, 420, 420, 3), compression="lzf")
             fw.create_dataset("clear_sky", data=clear_skies, chunks=(1, 420, 420), compression="lzf")
             fw.create_dataset("ir_label", data=ir_labels, chunks=(1, 420, 420), compression="lzf")
-            fw.create_dataset("selected_label", data=labels_out[label_selected], chunks=(1, 420, 420), compression="lzf")
+            fw.create_dataset(
+                "selected_label", data=labels_out[label_selected], chunks=(1, 420, 420), compression="lzf"
+            )
             fw.create_dataset("sun_mask", data=sun_masks, chunks=(1, 420, 420), compression="lzf")
             for j, data in enumerate(labels_out):
                 fw.create_dataset("labels" + str(j), data=data, chunks=(1, 420, 420), compression="lzf")
@@ -248,12 +269,9 @@ def get_days():
 
 def get_vis_timestamps(day):
     filenames = [
-        file
-        for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day))
-        if file.endswith("_0.jpg")
+        file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")
     ]
-    timestamps = [TIMEZONE.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT))
-                  for filename in filenames]
+    timestamps = [TIMEZONE.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT)) for filename in filenames]
     timestamps.sort()
     return timestamps
 
@@ -308,12 +326,12 @@ if __name__ == "__main__":
         name = "main_"
         optimize = False
 
-        print("Dataset classifier: ", end='')
+        print("Dataset classifier: ", end="")
         classifier = input().strip()
-        print("Dataset changes: ", end='')
+        print("Dataset changes: ", end="")
         changes = input().strip()
 
-        print("Would you also like to generate an training optimized version (y)/n: ", end='')
+        print("Would you also like to generate an training optimized version (y)/n: ", end="")
         if input().strip() != "n":
             optimize = True
 
