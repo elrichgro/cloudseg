@@ -33,8 +33,9 @@ def train(config):
     trainer = Trainer(
         logger=logger,
         checkpoint_callback=checkpoint_callback,
-        gpus="-1" if torch.cuda.is_available() else None,
+        gpus=config["gpus"] if torch.cuda.is_available() else None,
         max_epochs=config["num_epochs"],
+        distributed_backend='ddp'
     )
 
     trainer.fit(model)

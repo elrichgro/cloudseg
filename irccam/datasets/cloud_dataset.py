@@ -77,7 +77,7 @@ class HDF5Dataset(Dataset):
         return self.length
 
     def _add_data_infos(self, file_path):
-        with h5py.File(file_path) as h5_file:
+        with h5py.File(file_path, "r") as h5_file:
             size = h5_file["timestamp"].shape[0]
             self.offsets.append(self.length)
             self.length += size

@@ -62,14 +62,10 @@ class CloudSegmentation(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
     def train_dataloader(self):
-        return DataLoader(self.dataset_train, self.hparams.batch_size, shuffle=True, pin_memory=True, drop_last=True,)
+        return DataLoader(self.dataset_train, self.hparams.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=4)
 
     def val_dataloader(self):
-        return DataLoader(
-            self.dataset_val, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
-        )
+        return DataLoader(self.dataset_val, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=4)
 
     def test_dataloader(self):
-        return DataLoader(
-            self.dataset_test, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False,
-        )
+        return DataLoader(self.dataset_test, self.hparams.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=4)
