@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from irccam.training.cloud_segmentation import CloudSegmentation
 from irccam.utils.constants import *
 from irccam.datasets.helpers import get_dataset_class
+from irccam.datasets.transforms import get_transforms
 
 
 def configure_logger(hparams):
@@ -41,6 +42,7 @@ def get_config(config_file):
         config["dataset_root"] = os.path.join(DATASET_PATH, config["dataset_root"])
     config["log_dir"] = config.get("log_dir", os.path.join(PROJECT_PATH, "training_logs"))
     config["use_clear_sky"] = config.get("use_clear_sky", False)
+    config["random_rotations"] = config.get("random_rotations", False)
     return config
 
 
@@ -56,11 +58,12 @@ def train(config):
     )
 
     ## Data
-    trans = transforms.Compose([transforms.ToTensor(),])
+    base_trans = transforms.Compose([transforms.ToTensor(),])
+    train_trans = get_transforms(hparams)
     dataset_class = get_dataset_class(hparams.dataset_class)
-    dataset_train = dataset_class(hparams.dataset_root, "train", trans, hparams.use_clear_sky)
-    dataset_val = dataset_class(hparams.dataset_root, "val", trans, hparams.use_clear_sky)
-    dataset_test = dataset_class(hparams.dataset_root, "test", trans, hparams.use_clear_sky)
+    dataset_train = dataset_class(hparams.dataset_root, "train", train_trans, hparams.use_clear_sky)
+    dataset_val = dataset_class(hparams.dataset_root, "val", base_trans, hparams.use_clear_sky)
+    dataset_test = dataset_class(hparams.dataset_root, "test", base_trans, hparams.use_clear_sky)
     train_loader = DataLoader(
         dataset_train, hparams.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=4
     )
