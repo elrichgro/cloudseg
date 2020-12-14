@@ -8,5 +8,6 @@
   "experiment_name": "test-experiment",
   "dataset_class": "hdf5",
   "log_dir": "/Users/elrich/code/eth/irccam-pmodwrc/data/training_logs",
-  "use_clear_sky": false
+  "use_clear_sky": false,
+  "cluster": false
 }

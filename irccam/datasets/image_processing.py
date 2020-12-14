@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import datetime
+from pysolar.solar import get_azimuth, get_altitude
+
 from irccam.utils.constants import *
 from irccam.datasets.masks import common_mask, background_mask
 
@@ -86,7 +89,7 @@ def apply_background_mask(img):
     img[background_mask == 255] = np.nan
 
 
-def apply_common_mask(img, fill = np.nan):
+def apply_common_mask(img, fill=np.nan):
     img[common_mask == 255] = fill
 
 
@@ -94,3 +97,36 @@ def transform_perspective(img, shape):
     matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/resources/trans_matrix.csv")
     M = np.loadtxt(matrix_file, delimiter=",")
     return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)
+
+
+#######################################################################
+### Sun masks
+#######################################################################
+
+
+def create_sun_mask(position, radius, img_size=(420, 420)):
+    img = np.zeros(img_size).astype(np.uint8)
+    cv2.circle(img, position, radius, 1, -1)
+    return img
+
+
+def get_sun_position(ts):
+    # Date
+    date = datetime.datetime.strptime(ts, "%Y%m%d%H%M%S")
+    tz = timezone("UTC")
+    date = tz.localize(date)
+
+    # Sun angles
+    location = (LOCATION.latitude, LOCATION.longitude)
+    azimuth = get_azimuth(*location, date)
+    zenith = 90 - get_altitude(*location, date)
+
+    # Position in image
+    center = (220, 220)
+    radius = 220
+    alpha = 90
+    sun_x = int(center[0] - radius * np.sin(np.radians(azimuth)) * zenith / alpha)
+    sun_y = int(center[1] + radius * np.cos(np.radians(azimuth)) * zenith / alpha)
+    sun = (sun_x, sun_y)
+    return sun
+

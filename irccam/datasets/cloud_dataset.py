@@ -5,6 +5,8 @@ import h5py
 import numpy as np
 from bisect import bisect_right
 
+from irccam.datasets.image_processing import get_sun_position, create_sun_mask
+
 
 def create_label_image(labels):
     img = np.zeros((labels.shape[0], labels.shape[1], 3))
@@ -21,7 +23,7 @@ Inspiration https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f
 
 
 class HDF5Dataset(Dataset):
-    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False, use_sun_mask=True):
+    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False, use_sun_mask=True, sun_radius=40):
         super().__init__()
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
@@ -37,16 +39,19 @@ class HDF5Dataset(Dataset):
         self.offsets = []
 
         self.use_sun_mask = use_sun_mask
+        self.sun_radius = sun_radius
 
         self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
         for h5dataset_fp in self.files:
             self._add_data_infos(h5dataset_fp)
 
     def __getitem__(self, index):
-        timestamp, irc_raw, label, clear_sky, sun_mask = self.get_data(index)
+        timestamp, irc_raw, label, clear_sky, _ = self.get_data(index)
 
         # TODO when to apply mask and fill in nans, here or after clear sky modifications
         if self.use_sun_mask:
+            sun = get_sun_position(timestamp.decode("utf-8"))
+            sun_mask = create_sun_mask(sun, self.sun_radius)
             irc_raw[sun_mask] = 0
             label[np.logical_and(sun_mask, label != -1)] = 0
 
