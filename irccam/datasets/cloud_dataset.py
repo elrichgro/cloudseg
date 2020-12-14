@@ -54,8 +54,8 @@ class HDF5Dataset(Dataset):
         if self.use_sun_mask:
             sun = get_sun_position(timestamp)
             sun_mask = create_sun_mask(sun, self.sun_radius)
-            irc_raw[sun_mask] = 0
-            label[np.logical_and(sun_mask, label != -1)] = 0
+            irc_raw[sun_mask == 1] = 0
+            label[np.logical_and(sun_mask == 1, label != -1)] = 0
 
         np.nan_to_num(label, copy=False, nan=255.0)
         np.nan_to_num(irc_raw, copy=False, nan=255.0)
