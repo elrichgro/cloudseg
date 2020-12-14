@@ -3,7 +3,7 @@ from pytorch_lightning import Trainer
 import argparse
 import json
 from pytorch_lightning.loggers import TestTubeLogger
-from pytorch_lightning.callbacks import ModelCheckpoint, ProgressBar
+from pytorch_lightning.callbacks import ModelCheckpoint
 import datetime
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -44,17 +44,6 @@ def get_config(config_file):
     return config
 
 
-class LitProgressBar(ProgressBar):
-    def on_validation_start(self, trainer, pl_module):
-        super().on_validation_start(trainer, pl_module)
-        print("Validating")
-
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
-        if self.is_enabled and self.val_batch_idx % self.refresh_rate == 0:
-            self.main_progress_bar.update(self.refresh_rate)
-
-
 def train(config):
     hparams = argparse.Namespace(**config)
 
@@ -64,7 +53,6 @@ def train(config):
         gpus=hparams.gpus if torch.cuda.is_available() else None,
         max_epochs=hparams.num_epochs,
         distributed_backend="ddp" if hparams.cluster == True else None,
-        callbacks=[LitProgressBar()],
     )
 
     ## Data
