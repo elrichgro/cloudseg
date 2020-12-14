@@ -47,10 +47,12 @@ class HDF5Dataset(Dataset):
 
     def __getitem__(self, index):
         timestamp, irc_raw, label, clear_sky, _ = self.get_data(index)
+        if type(timestamp) == bytes:
+            timestamp = timestamp.decode("utf-8")
 
         # TODO when to apply mask and fill in nans, here or after clear sky modifications
         if self.use_sun_mask:
-            sun = get_sun_position(timestamp.decode("utf-8"))
+            sun = get_sun_position(timestamp)
             sun_mask = create_sun_mask(sun, self.sun_radius)
             irc_raw[sun_mask] = 0
             label[np.logical_and(sun_mask, label != -1)] = 0
