@@ -79,8 +79,9 @@ def normalize_irccam_image(img_ir):
     """
     # Threshold to remove outliers
     mi, ma = -80.0, 60.0
-    img_ir[np.logical_and(!np.isnan(img_ir), img_ir < mi)] = mi
-    img_ir[np.logical_and(!np.isnan(img_ir), img_ir > ma)] = ma
+    np.nan
+    img_ir[np.less(img_ir, mi, where=np.isnan(img_ir) == False)] = mi
+    img_ir[np.greater(img_ir, ma, where=np.isnan(img_ir) == False)] = ma
     img_ir -= mi
     img_ir *= 255 / (ma - mi)
 
