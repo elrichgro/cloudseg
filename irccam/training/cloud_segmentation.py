@@ -11,7 +11,7 @@ class CloudSegmentation(pl.LightningModule):
         super(CloudSegmentation, self).__init__()
         self.save_hyperparameters()
 
-        self.model = get_model(self.hparams.model_name, self.hparams)
+        self.model = get_model(self.hparams.model_name, **kwargs)
 
         self.cross_entropy_loss = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-1)
 
