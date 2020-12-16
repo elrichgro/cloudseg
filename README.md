@@ -1,8 +1,7 @@
 # irccam-pmodwrc
-Cloud detection using the IRCCAM at PMOD/WRC
+Cloud segmentation using the Infrared all-sky Cloud Camera (IRCCAM) at PMOD/WRC in Davos, Switzerland.
 
 ## Create environment
-We are using good old Anaconda now... **** you Windows 
 ```
 conda env create --name=dslab -f environment.yml 
 ```
