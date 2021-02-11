@@ -36,14 +36,16 @@ def process_irccam_label(img):
     return processed_ir
 
 
-def process_vis_img(img):
+def process_vis_img(img, transform=True, mask=True):
     processed_vis = cv2.resize(img, (640, 480))
     processed_vis = processed_vis[50:470, 105:525]
     processed_vis = cv2.flip(processed_vis, 1)
     processed_vis = rotate_image(processed_vis, -130)
     processed_vis = processed_vis.astype("float32")
-    processed_vis = transform_perspective(processed_vis, (processed_vis.shape[0], processed_vis.shape[1]))
-    apply_background_mask(processed_vis)
+    if transform:
+        processed_vis = transform_perspective(processed_vis, (processed_vis.shape[0], processed_vis.shape[1]))
+    if mask:
+        apply_background_mask(processed_vis)
     return processed_vis
 
 
