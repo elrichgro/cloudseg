@@ -1,4 +1,4 @@
-from irccam.models.unet import UNet
+from irccam.models.unet.unet import UNet
 from irccam.models.deeplab.deeplab import DeepLab
 
 

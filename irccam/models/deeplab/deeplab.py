@@ -1,5 +1,3 @@
-# From: https://github.com/jfzhang95/pytorch-deeplab-xception
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +8,12 @@ from irccam.models.deeplab.backbone import build_backbone
 
 
 class DeepLab(nn.Module):
+    """
+    Pytorch implementation of DeepLabv3+ from "Encoder-Decoder with Atrous Separable 
+    Convolution for Semantic Image Segmentation" (https://arxiv.org/abs/1802.02611)
+
+    Adapted from https://github.com/jfzhang95/pytorch-deeplab-xception
+    """
     def __init__(self, backbone="resnet", output_stride=16, num_classes=2, sync_bn=True, freeze_bn=False, **kwargs):
         super(DeepLab, self).__init__()
         if backbone == "drn":

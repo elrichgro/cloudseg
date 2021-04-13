@@ -1,11 +1,14 @@
-# Copied from https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
-
 import torch.nn.functional as F
 
 from .unet_parts import *
 
 
 class UNet(nn.Module):
+    """
+    Pytorch implementation of the UNet model.
+
+    Adapted from https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
+    """
     def __init__(self, **kwargs):
         super(UNet, self).__init__()
         bilinear = True

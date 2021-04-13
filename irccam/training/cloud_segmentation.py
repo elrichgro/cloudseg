@@ -3,7 +3,7 @@ import torch
 from torchvision import transforms
 from pytorch_lightning.metrics.functional.classification import iou
 
-from irccam.models.helpers import get_model
+from irccam.models import get_model
 
 
 class CloudSegmentation(pl.LightningModule):
