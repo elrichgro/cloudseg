@@ -79,8 +79,7 @@ class HDF5Dataset(Dataset):
             irc[irc_raw == 255] = 0.0
 
         if self.transform:
-            irc = self.transform(irc)
-            label = self.transform(label)
+            irc, label = self.transform(irc, label)
 
         return {"index": index, "timestamp": timestamp, "irc": irc, "label": label}
 
