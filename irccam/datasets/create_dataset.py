@@ -1,22 +1,3 @@
-"""
-Take the raw IRCCAM data and RGB data and create train, val, and test sets
-for model training. 
-
-Basic flow:
-- Split into train, val, test sets by day
-- Get all timestamps for each set
-- For each timestamp:
-    - Get ir image, RGB image
-    - Preprocess
-    - Create label
-    - Filter out some images
-    - Save files into HDF5 format
-
-Still to do:
-- better RGB detection
-- filter out bad days
-"""
-
 import cv2
 import math
 import numpy as np
@@ -31,37 +12,77 @@ from datetime import datetime, timedelta
 
 from sklearn.model_selection import train_test_split
 
-from irccam.datasets.helpers import get_contained_dirs, get_contained_files
-from irccam.datasets.optimize_dataset import optimize_dataset
-from irccam.datasets.image_processing import (
+from irccam.utils.files import get_contained_dirs, get_contained_files
+from irccam.datasets.optimization import optimize_dataset
+from irccam.datasets.preprocessing import (
     process_irccam_img,
     process_vis_img,
     sun_correction,
     process_irccam_label,
-    apply_common_mask,
 )
-from irccam.datasets.dataset_filter import (
+from irccam.datasets.masking import apply_full_mask
+from irccam.datasets.filtering import (
     filter_sun,
     filter_sparse,
     filter_manual,
 )
-from irccam.datasets.rgb_labeling import create_rgb_label_julian, create_label_adaptive
+from irccam.datasets.labeling import create_label_rb_threshold, create_label_adaptive
 
 from irccam.utils.constants import *
 
 
-def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog="", use_manual_filter=True):
+def create_dataset(
+    dataset_name,
+    test=False,
+    sizes=(0.6, 0.2, 0.2),
+    changelog="",
+    use_manual_filter=True,
+    raw_data_path=RAW_DATA_PATH,
+    output_path=DATASET_PATH,
+):
+    """
+    Create an H5 based dataset from the raw IRCCAM and RGB image data.
+
+    Read in the raw IRRCCAM and RGB image data and create a training dataset with 
+    an H5 file for each day. For each timestamp, the raw data is preprocessed, aligned,
+    and the training labels are created. 
+    
+    The data is split into train, val, and test splits and the split information is 
+    stored in text files in the dataset directory. The split is done per day, to 
+    minimize leakage between training and test sets.
+
+    Parameters
+    ----------
+    dataset_name : str
+        Name of the dataset to output
+    test : bool
+        Create a test dataset in a test folder (used for testing the function)
+    sizes : tuple[float, float, float]
+        Fraction of days to allocate to the training, validation, and test sets, resp.
+    use_manual_filter: 
+        Whether to filter out timestamps from the final dataset, based on the manually
+        created CSV file stored at `irccam/datasets/resources/filter_manual.csv`
+    raw_data_path:
+        Path to directory where the raw IRCCAM and RGB data is stored
+    output_path: 
+        Where to store the created dataset
+
+    Returns
+    -------
+    None
+
+    """
     assert sum(sizes) == 1, "Split sizes to not sum up to 1"
 
     print("Creating dataset")
-    days = get_days()
+    days = get_days(raw_data_path)
 
     if test:
         days = days[:6]
         dataset_name = dataset_name + "_" + str(uuid.uuid4())
-        path = os.path.join(DATASET_PATH, "../test/", dataset_name)
+        path = os.path.join(output_path, "../test/", dataset_name)
     else:
-        path = os.path.join(DATASET_PATH, dataset_name)
+        path = os.path.join(output_path, dataset_name)
 
     # Create data/previews directories if it doesn't exist yet
     previews_path = os.path.join(path, "previews")
@@ -73,7 +94,8 @@ def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog=""
             f.write(changelog)
 
     success = Parallel(n_jobs=6)(
-        delayed(process_day)(path, d, i, len(days), use_manual_filter) for i, d in enumerate(days)
+        delayed(process_day)(path, d, i, len(days), use_manual_filter, raw_data_path=raw_data_path)
+        for i, d in enumerate(days)
     )
     print("Successfully added {}/{} days to the dataset".format(sum(success), len(days)))
     # Save splits
@@ -86,20 +108,21 @@ def create_dataset(dataset_name, test=False, sizes=(0.6, 0.2, 0.2), changelog=""
     np.savetxt(os.path.join(path, "val.txt"), days_val, fmt="%s")
 
 
-def process_day(data_path, day, i, n, use_manual_filter):
+def process_day(data_path, day, i, n, use_manual_filter, raw_data_path=RAW_DATA_PATH):
     print("Processing day {} - {}/{}".format(day, i + 1, n))
 
-    # create output directory
+    # Create output directory
     data_filename = os.path.join(data_path, "{}.h5".format(day))
     if os.path.exists(data_filename):
         return True
 
-    with h5py.File(os.path.join(RAW_DATA_PATH, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
+    # Read raw data for day and apply processing
+    with h5py.File(os.path.join(raw_data_path, "irccam", "irccam_{}_rad.mat".format(day)), "r") as fr:
         irc_raw = fr["BT"]
         clear_sky_raw = fr["TB"]
         ir_labels_raw = fr["CLOUDS"]
         irc_timestamps = get_irc_timestamps(day, fr)
-        vis_timestamps = get_vis_timestamps(day)
+        vis_timestamps = get_vis_timestamps(day, raw_data_path)
 
         matching_timestamps = match_timestamps(irc_timestamps, vis_timestamps)
         filtered_timestamps = filter_sun(matching_timestamps, day)
@@ -134,7 +157,7 @@ def process_day(data_path, day, i, n, use_manual_filter):
             irc_img = irc_raw[irc_idx, :, :]
             irc_img = process_irccam_img(irc_img)
 
-            vis_img = get_vis_img(vis_ts)
+            vis_img = get_vis_img(vis_ts, raw_data_path)
             vis_img = process_vis_img(vis_img)
 
             clear_sky = clear_sky_raw[irc_idx, :, :]
@@ -145,19 +168,19 @@ def process_day(data_path, day, i, n, use_manual_filter):
 
             # Create labels
             labels = [
-                create_rgb_label_julian(vis_img, cloud_ref=2.35),
-                create_rgb_label_julian(vis_img, cloud_ref=2.7),
-                create_rgb_label_julian(vis_img, cloud_ref=3),
+                create_label_rb_threshold(vis_img, cloud_ref=2.35),
+                create_label_rb_threshold(vis_img, cloud_ref=2.7),
+                create_label_rb_threshold(vis_img, cloud_ref=3),
                 create_label_adaptive(vis_img),
             ]
 
-            sun_mask = sun_correction(vis_img, irc_img, clear_sky, labels)
+            sun_mask = sun_correction(vis_img, irc_img)
 
             label_images = [create_label_image(i) for i in labels]
             ir_label_image = create_label_image(ir_label)
 
             # apply common mask to vis, cannot do it before to not mess with adaptive labeling
-            apply_common_mask(vis_img)
+            apply_full_mask(vis_img)
 
             comparison_image = concat_images(
                 {
@@ -259,17 +282,17 @@ def match_timestamps(ir_ts, vis_ts):
     return valid
 
 
-def get_days():
-    vis_days = get_contained_dirs(os.path.join(RAW_DATA_PATH, "rgb"))
-    ir_days = [f[7:-8] for f in get_contained_files(os.path.join(RAW_DATA_PATH, "irccam"))]
+def get_days(raw_data_path):
+    vis_days = get_contained_dirs(os.path.join(raw_data_path, "rgb"))
+    ir_days = [f[7:-8] for f in get_contained_files(os.path.join(raw_data_path, "irccam"))]
 
     valid = list(sorted(set(vis_days).intersection(ir_days)))
     return valid
 
 
-def get_vis_timestamps(day):
+def get_vis_timestamps(day, raw_data_path):
     filenames = [
-        file for file in get_contained_files(os.path.join(RAW_DATA_PATH, "rgb", day)) if file.endswith("_0.jpg")
+        file for file in get_contained_files(os.path.join(raw_data_path, "rgb", day)) if file.endswith("_0.jpg")
     ]
     timestamps = [TIMEZONE.localize(datetime.strptime(filename[:-6], TIMESTAMP_FORMAT)) for filename in filenames]
     timestamps.sort()
@@ -291,9 +314,9 @@ def convert_timestamp(day, timestamp):
     return TIMEZONE.localize(day_timestamp + seconds_delta)
 
 
-def get_vis_img(timestamp):
+def get_vis_img(timestamp, raw_data_path):
     file_path = os.path.join(
-        RAW_DATA_PATH,
+        raw_data_path,
         "rgb",
         timestamp.strftime(TIMESTAMP_FORMAT_DAY),
         "{}_0.jpg".format(timestamp.strftime(TIMESTAMP_FORMAT)),
