@@ -1,69 +1,11 @@
-# irccam-pmodwrc
-Cloud segmentation using the Infrared all-sky Cloud Camera (IRCCAM) at PMOD/WRC in Davos, Switzerland.
+# Full-sky Cloud Segmentation with the Infrared Cloud Camera at PMOD/WRC in Davos, Switzerland
 
-## Create environment
-```
-conda env create --name=dslab -f environment.yml 
-```
+![comparison-cirrus](https://user-images.githubusercontent.com/10598816/116904443-fa76bc00-ac3d-11eb-9a11-52c97a67d95e.png)
 
-## Update environment
-```
-conda env update --name=dslab -f environment.yml 
-```
+Code for our research project at ETH Zürich in collaboration with PMOD/WRC in Davos, Switzerland. We developed a deep learning based approach for continuous cloud monitoring using an all-sky infrared camera. 
 
-## Running notebooks
-To run jupyter notebook with the project virtual env:
-```
-conda activate dslab
-jupyter notebook
-```
+## Abstract 
+Cloud coverage is an important metric in weather prediction but is still most commonly determined by human observation. Automatic measurement using an RGB all-sky camera is unfortunately limited to daytime. To alleviate this problem the team at PMOD/WRC developed a prototype thermal infrared camera (IRCCAM). Their previous work utilized fixed thresholding which had problems with consistently detecting thin, high-altitude cirrus clouds. We utilized RGB images taken at the same location to create a labelled dataset on which we trained a deep learning semantic segmentation model. The resulting algorithm matches the previous approach in detecting thicker clouds and qualitatively outperforms it in detecting thinner cloud. We believe that coupled with the IRCCAM our model is comparable to human observation and can be used for continuous cloud coverage monitoring anywhere.
 
-
-## Data
-The `data` folder is ignored by git, but we should use a consistent structure
-locally to make it easy to work with data in the code. The structure is 
-currently:
-```
-.
-└── data/
-    ├── raw/
-    │   ├── davos/
-    │   │   ├── irccam
-    │   │   └── rgb
-    │   └── geneva/
-    │       ├── irccam
-    │       └── rgb
-    └── datasets/
-        ├── dataset_1/
-        │   ├── previews/
-        │   │   ├── (day).mp4 # daily preview video
-        │   │   └── ...
-        │   ├── train.txt # days from train
-        │   ├── test.txt # days for test
-        │   ├── val.txt # days for val
-        │   ├── (day).h5 # all daily data in HDF5 format
-        │   └── ...
-        └── ...
-```
-
-# Dataset variables
-### main
- - timestamps - array of timestamp is format `%Y%m%d%H%M%S`
- - irc - normalized irc image, 0-255 float32
- - vis - reference rgb image
- - clear_sky - normalized clear sky model, 0-255 float32
- - ir_label - labels produced by Julians treshold algo
- - selected_label - manually selected label
- - sun_mask - boolean array, true where the sun is
- - label(0-3) - rgb produced label, in order (2.35, 2.75, 3, adaptive)
- 
- 
-### optimized
- - timestamps
- - irc
- - selected_label
- - sun_mask
- 
-All labels have the format of: -1 mask, 0 sky, 1 clouds
-
-All images have nan for mask 
+## Report
+Read the full report [here](report.pdf).
