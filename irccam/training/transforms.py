@@ -24,7 +24,6 @@ class RandomMask:
         mask_file = random.choice(self.mask_files)
         mask = cv2.imread(mask_file, -1)
         assert mask is not None, f"Could not find mask {mask_file}"
-        mask = mask[:, :, 0]
         img[mask == 255] = 0
         label[mask == 255] = -1
         return img, label
