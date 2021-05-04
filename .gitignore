@@ -146,3 +146,9 @@ Pipfile.lock
 # Training logs
 lightning_logs
 training_logs
+
+# Large models
+pretrained_models/
+
+# Other
+wandb/

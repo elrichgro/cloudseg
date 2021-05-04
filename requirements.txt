@@ -11,3 +11,6 @@ scipy
 scikit-learn
 astral
 test-tube
+configargparse
+wandb
+pysolar

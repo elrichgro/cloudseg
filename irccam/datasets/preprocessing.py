@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-import datetime
-from pysolar.solar import get_azimuth, get_altitude
 
 from irccam.utils.constants import *
 from irccam.datasets.masking import apply_full_mask, apply_background_mask

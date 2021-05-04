@@ -63,12 +63,12 @@ class PairRotate:
         )
 
 
-def get_transforms(hparams):
+def get_transforms(args):
     trans = transforms.Compose(
         [
-            RandomMask() if hparams.random_mask else Identity(),
+            RandomMask() if args.random_mask else Identity(),
             PairToTensor(),
-            PairRotate(360) if hparams.random_rotations else Identity(),
+            PairRotate(360) if args.random_rotations else Identity(),
         ]
     )
     return trans
