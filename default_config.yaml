@@ -7,6 +7,7 @@ learning_rate: 0.01
 experiment_name: default_experiment
 use_clear_sky: true
 random_mask: true
+val_random_mask: true
 random_rotations: true
 cluster: false
 num_workers: 0

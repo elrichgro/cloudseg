@@ -8,27 +8,29 @@ from torch.utils.data import DataLoader
 
 from irccam.training.cloud_segmentation import CloudSegmentation
 from irccam.utils.constants import *
-from irccam.training.transforms import get_transforms, PairToTensor
+from irccam.training.transforms import get_transforms, PairToTensor, get_validation_transforms
 from irccam.training.cloud_dataset import HDF5Dataset
 from irccam.utils.args import parse_args
 
 
 def train(args):
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    log_dir = os.path.join(args.log_dir, f"{timestamp}-{args.experiment_name}")
     trainer = Trainer(
-        logger=configure_logger(args),
-        checkpoint_callback=configure_checkpoints(args),
+        logger=configure_logger(args, log_dir),
+        checkpoint_callback=configure_checkpoints(args, log_dir),
         gpus=args.gpus if torch.cuda.is_available() else None,
         max_epochs=args.num_epochs,
         distributed_backend="ddp" if args.cluster == True else None,
-        fast_dev_run=args.fast_dev_run
+        fast_dev_run=args.fast_dev_run,
     )
 
     ## Data
-    base_trans = PairToTensor()
+    val_trans = get_validation_transforms(args)
     train_trans = get_transforms(args)
     dataset_train = HDF5Dataset(args.dataset_root, "train", train_trans, args.use_clear_sky)
-    dataset_val = HDF5Dataset(args.dataset_root, "val", base_trans, args.use_clear_sky)
-    dataset_test = HDF5Dataset(args.dataset_root, "test", base_trans, args.use_clear_sky)
+    dataset_val = HDF5Dataset(args.dataset_root, "val", val_trans, args.use_clear_sky)
+    dataset_test = HDF5Dataset(args.dataset_root, "test", val_trans, args.use_clear_sky)
     train_loader = DataLoader(
         dataset_train, args.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=args.num_workers
     )
@@ -36,7 +38,12 @@ def train(args):
         dataset_val, args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=args.num_workers
     )
     test_loader = DataLoader(
-        dataset_test, args.batch_size_val, shuffle=False, pin_memory=True, drop_last=False, num_workers=args.num_workers
+        dataset_test,
+        args.batch_size_val,
+        shuffle=False,
+        pin_memory=True,
+        drop_last=False,
+        num_workers=args.num_workers,
     )
 
     ## Model & Training
@@ -46,11 +53,10 @@ def train(args):
     trainer.test(model, test_dataloaders=test_loader)
 
 
-def configure_logger(args):
-    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+def configure_logger(args, log_dir):
     loggers = [
         TestTubeLogger(
-            save_dir=os.path.join(args.log_dir, "{}-{}".format(timestamp, args.experiment_name)),
+            save_dir=log_dir,
             name="tube_logs",
             version=0,
         )
@@ -60,7 +66,7 @@ def configure_logger(args):
     return loggers
 
 
-def configure_checkpoints(args):
+def configure_checkpoints(args, log_dir):
     return ModelCheckpoint(
         save_last=True,
         save_top_k=1,
@@ -69,6 +75,7 @@ def configure_checkpoints(args):
         mode="max",
         prefix="",
         filename="best-{epoch:02d}-{val_iou:.2f}",
+        dirpath=log_dir,
     )
 
 

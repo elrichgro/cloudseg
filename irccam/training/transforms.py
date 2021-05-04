@@ -13,17 +13,18 @@ class Identity:
 
 
 class RandomMask:
-    def __init__(self, num_masks=30):
-        self.mask_files = [
-            os.path.join(PROJECT_PATH, "irccam/datasets/resources/random_masks", f"{i}.bmp")
-            for i in range(1, num_masks + 1)
-        ]
+    def __init__(self, training=True):
+        mode = "training" if training else "validation"
+        masks_path = f"irccam/datasets/resources/{mode}_masks"
+        num_masks = 30 if training else 3
+        self.mask_files = [os.path.join(PROJECT_PATH, masks_path, f"{i}.bmp") for i in range(1, num_masks + 1)]
 
     def __call__(self, input):
         img, label = input
         mask_file = random.choice(self.mask_files)
-        mask = cv2.imread(mask_file, -1)[:, :, 0]
+        mask = cv2.imread(mask_file, -1)
         assert mask is not None, f"Could not find mask {mask_file}"
+        mask = mask[:, :, 0]
         img[mask == 255] = 0
         label[mask == 255] = -1
         return img, label
@@ -69,6 +70,16 @@ def get_transforms(args):
             RandomMask() if args.random_mask else Identity(),
             PairToTensor(),
             PairRotate(360) if args.random_rotations else Identity(),
+        ]
+    )
+    return trans
+
+
+def get_validation_transforms(args):
+    trans = transforms.Compose(
+        [
+            RandomMask(training=False) if args.val_random_mask else Identity(),
+            PairToTensor(),
         ]
     )
     return trans
