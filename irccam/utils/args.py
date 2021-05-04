@@ -55,6 +55,8 @@ def parse_args():
         default="data/datasets/optimized_4",
         type=lambda s: os.path.abspath(s),
     )
+    parser.add_argument("--gpus", help="gpus for pytorch", default=-1, type=int)
+    parser.add_argument("--dataset", help="dataset for training", type=str)
 
     # Logging
     parser.add_argument(
