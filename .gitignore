@@ -152,3 +152,4 @@ pretrained_models/
 
 # Other
 wandb/
+**/*.mat

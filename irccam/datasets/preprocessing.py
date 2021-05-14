@@ -30,7 +30,7 @@ def process_irccam_img(img):
 
 def process_irccam_label(img):
     """
-    Flip, crop, and apply mask to raw IRCCAM threshold label. 
+    Flip, crop, and apply mask to raw IRCCAM threshold label.
     """
     processed_ir = np.swapaxes(img, 0, 1)
     processed_ir = cv2.flip(processed_ir, -1)
@@ -42,10 +42,29 @@ def process_irccam_label(img):
     return processed_ir
 
 
+def apply_clear_sky(img, clear_sky):
+    """
+    Subtract clear sky reference to IRCCAM image, clip to range [-30,100]
+    and normalize to [0,1] range.
+    """
+    output = img - clear_sky
+
+    # Scale to [0,1]
+    mi = -30
+    ma = 100
+    np.nan_to_num(output, copy=False, nan=mi)
+    output[img == 255] = mi
+    output[output < mi] = mi
+    output[output > ma] = ma
+    output -= mi
+    output /= ma - mi
+    return output
+
+
 def process_vis_img(img, transform=True, mask=True):
     """
     Resize, flip, rotate, align, and apply mask to raw RGB image.
-    
+
     Parameters
     ----------
     transform : bool
@@ -67,7 +86,7 @@ def process_vis_img(img, transform=True, mask=True):
 
 def sun_correction(vis_img, ir_img, threshold=235):
     """
-    Naive approach for filtering out sun flare on IRCCAM images. Pixels over the given 
+    Naive approach for filtering out sun flare on IRCCAM images. Pixels over the given
     threshold in the IRCCAM image are considered sun pixels, and are filtered out
     with a circle on the RGB image.
 
@@ -77,7 +96,7 @@ def sun_correction(vis_img, ir_img, threshold=235):
         Input RGB image
     ir_img: np.array
         Input IRCCAM image
-    threshold: 
+    threshold:
         Temperature threshold used to detect sun pixels
     """
     img = ir_img.copy()
@@ -97,8 +116,8 @@ def normalize_irccam_image(img_ir):
     """
     Normalize IRCCAM image data.
 
-    Pixel values (temperatures) outside the range [-80, 60] are clipped. The pixel data 
-    is then normalized to the range [0, 255]. 
+    Pixel values (temperatures) outside the range [-80, 60] are clipped. The pixel data
+    is then normalized to the range [0, 255].
     """
     mi, ma = -80.0, 60.0
     np.nan
@@ -110,10 +129,9 @@ def normalize_irccam_image(img_ir):
 
 def transform_perspective(img, shape):
     """
-    Transform RGB image to match the perspective of the IRCCAM. The transformation 
-    matrix used was computed by matching SIFT features in IRRCAM-RGB image pairs. 
+    Transform RGB image to match the perspective of the IRCCAM. The transformation
+    matrix used was computed by matching SIFT features in IRRCAM-RGB image pairs.
     """
     matrix_file = os.path.join(PROJECT_PATH, "irccam/datasets/resources/trans_matrix.csv")
     M = np.loadtxt(matrix_file, delimiter=",")
     return cv2.warpPerspective(img, M, shape, cv2.INTER_NEAREST)
-

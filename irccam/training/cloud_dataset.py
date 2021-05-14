@@ -9,6 +9,7 @@ import datetime
 from pysolar.solar import get_azimuth, get_altitude
 
 from irccam.utils.constants import *
+from irccam.datasets.preprocessing import apply_clear_sky
 
 
 class HDF5Dataset(Dataset):
@@ -57,17 +58,8 @@ class HDF5Dataset(Dataset):
         label = label.astype(np.long)
 
         if self.use_clear_sky:
-            irc = irc_raw - clear_sky
-
-            # Scale to [0,1]
-            mi = -30
-            ma = 100
-            np.nan_to_num(irc, copy=False, nan=mi)
-            irc[irc_raw == 255] = mi
-            irc[irc < mi] = mi
-            irc[irc > ma] = ma
-            irc -= mi
-            irc /= ma - mi
+            # Subtract clear sky, scale to [0, 1]
+            irc = apply_clear_sky(irc_raw, clear_sky)
         else:
             # Scale to [0,1]
             irc = irc_raw / 255.0

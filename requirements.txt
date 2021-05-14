@@ -14,3 +14,4 @@ test-tube
 configargparse
 wandb
 pysolar
+hdf5storage

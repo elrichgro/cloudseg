@@ -1,6 +1,7 @@
 from irccam.utils.constants import *
 import cv2
 import os
+import numpy as np
 
 full_mask = cv2.imread(os.path.join(PROJECT_PATH, "irccam/datasets/resources/full_mask.bmp"), -1)
 background_mask = cv2.imread(os.path.join(PROJECT_PATH, "irccam/datasets/resources/background_mask.bmp"), -1)
