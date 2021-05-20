@@ -15,3 +15,5 @@ configargparse
 wandb
 pysolar
 hdf5storage
+gdown
+tqdm
