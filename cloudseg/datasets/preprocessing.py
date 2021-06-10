@@ -2,44 +2,80 @@ import cv2
 import numpy as np
 
 from cloudseg.utils.constants import *
-from cloudseg.datasets.masking import apply_full_mask, apply_background_mask
+from cloudseg.datasets.masking import apply_mask, apply_background_mask, full_mask
 
 
-def rotate_image(image, angle):
+def rotate_image(img, angle):
     """
     Rotate image by given angle. Adapted from https://stackoverflow.com/a/23316542.
     """
-    row, col, _ = image.shape
+    row, col, _ = img.shape
     center = tuple(np.array([row, col]) / 2)
     rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
-    new_image = cv2.warpAffine(image, rot_mat, (col, row))
-    return new_image
+    new_img = cv2.warpAffine(img, rot_mat, (col, row))
+    return new_img
 
 
-def process_irccam_img(img):
+def get_cropping_indices(img, crop_size=(420, 420)):
+    """
+    Get indices to crop a raw irccam image (640 x 640) to the size used by
+    our models (420 x 420). The indices are calculated by finding the leftmost
+    and uppermost non-nan values in the raw image.
+    """
+    left_idx = max(0, np.isnan(img).min(0).argmin() - 10)
+    right_idx = left_idx + crop_size[1]
+    upper_idx = max(0, np.isnan(img).min(1).argmin() - 10)
+    lower_idx = upper_idx + crop_size[0]
+
+    return (upper_idx, lower_idx), (left_idx, right_idx)
+
+
+def crop_image(img, crop_idx):
+    """
+    Returns a cropped version of img with the provided crop indices
+    """
+    upper, lower = crop_idx[0]
+    left, right = crop_idx[1]
+    return img[upper:lower, left:right]
+
+
+def process_irccam_img(img, crop_idx=((110, 530), (80, 500)), flip=True, mask=full_mask):
     """
     Flip, crop, normalize and apply mask to raw irccam image.
     """
-    processed_ir = np.swapaxes(img, 0, 1)
-    processed_ir = cv2.flip(processed_ir, -1)
-    processed_ir = processed_ir[110:530, 80:500]
+    processed_ir = img
+    if flip:
+        processed_ir = np.swapaxes(img, 0, 1)
+        processed_ir = cv2.flip(processed_ir, -1)
+    if crop_idx:
+        processed_ir = crop_image(processed_ir, crop_idx)
     normalize_irccam_image(processed_ir)
-    apply_full_mask(processed_ir)
+    apply_mask(processed_ir, mask)
     return processed_ir
 
 
-def process_irccam_label(img):
+def process_irccam_label(img, crop_idx=((110, 530), (80, 500)), flip=True, mask=full_mask):
     """
     Flip, crop, and apply mask to raw IRCCAM threshold label.
     """
-    processed_ir = np.swapaxes(img, 0, 1)
-    processed_ir = cv2.flip(processed_ir, -1)
-    processed_ir = processed_ir[110:530, 80:500]
-    mask = np.isnan(processed_ir)
-    processed_ir[mask] = 0
-    processed_ir[np.invert(mask)] = 1
-    apply_full_mask(processed_ir, fill=-1)
+    processed_ir = img
+    if flip:
+        processed_ir = np.swapaxes(img, 0, 1)
+        processed_ir = cv2.flip(processed_ir, -1)
+    if crop_idx:
+        processed_ir = crop_image(processed_ir, crop_idx)
+    nan_mask = np.isnan(processed_ir)
+    processed_ir[nan_mask] = 0
+    processed_ir[np.invert(nan_mask)] = 1
+    apply_mask(processed_ir, mask, fill=-1)
     return processed_ir
+
+
+def create_mask(mask, crop_idx):
+    """
+    Create a mask from the raw mask in an irccam matlab file.
+    """
+    return crop_image(np.array(mask), crop_idx) * 255
 
 
 def apply_clear_sky(img, clear_sky):
