@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="irccam",
+    name="cloudseg",
     version="0.1.0",
-    packages=["irccam"],
-    scripts=["irccam/scripts/cloudseg"],
+    packages=["cloudseg"],
+    scripts=["cloudseg/scripts/cloudseg"],
 )
