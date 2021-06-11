@@ -153,3 +153,4 @@ pretrained_models/
 # Other
 wandb/
 **/*.mat
+!example_input.mat
