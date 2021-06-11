@@ -36,20 +36,20 @@ def load_data(input_path, limit=None):
     return torch.stack(data), mask, crop_idx, original_shape
 
 
-def save_predictions(input_path, preds, output_path=None, output_file=None):
+def save_predictions(input_path, preds, output_path=None, output_filename=None):
     # TODO: works on windows?
     input_filename = os.path.splitext(os.path.basename(input_path))[0]
-    output_filename = output_file if output_file is not None else (input_filename + "_pred.mat")
+    if output_filename is None:
+        output_filename = input_filename + "_pred.mat"
     if not output_filename.endswith(".mat"):
         output_filename = output_filename + ".mat"
     output_dir = output_path if output_path is not None else os.getcwd()
-    print("output dir", output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     output_file = os.path.join(output_dir, output_filename)
-    print(preds.shape)
     output_data = {"preds": preds.T}
     hdf5storage.savemat(output_file, output_data)
+    print(f"Saved predictions to {output_file}")
 
 
 def expand_batch_preds(preds, original_shape, crop_idx):
