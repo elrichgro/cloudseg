@@ -1,4 +1,4 @@
-# Full-sky Cloud Segmentation with the Infrared Cloud Camera at PMOD/WRC in Davos, Switzerland
+# Full-Sky Cloud Segmentation with Deep Learning
 
 ![comparison-cirrus](https://user-images.githubusercontent.com/10598816/116904443-fa76bc00-ac3d-11eb-9a11-52c97a67d95e.png)
 
