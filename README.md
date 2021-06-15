@@ -4,15 +4,16 @@
 
 Code for our research project at ETH Zürich in collaboration with PMOD/WRC in Davos, Switzerland. We developed a deep learning based approach for continuous cloud monitoring using an all-sky infrared camera.
 
-## Abstract
-
-Cloud coverage is an important metric in weather prediction but is still most commonly determined by human observation. Automatic measurement using an RGB all-sky camera is unfortunately limited to daytime. To alleviate this problem the team at PMOD/WRC developed a prototype thermal infrared camera (IRCCAM). Their previous work utilized fixed thresholding which had problems with consistently detecting thin, high-altitude cirrus clouds. We utilized RGB images taken at the same location to create a labelled dataset on which we trained a deep learning semantic segmentation model. The resulting algorithm matches the previous approach in detecting thicker clouds and qualitatively outperforms it in detecting thinner cloud. We believe that coupled with the IRCCAM our model is comparable to human observation and can be used for continuous cloud coverage monitoring anywhere.
-
-## Report
-
-Read the full report [here](report.pdf).
 
 ## Usage
+
+### Installation
+
+To install cloudseg CLI tool:
+
+```shell
+pip install git+https://github.com/elrichgro/cloudseg.git
+```
 
 ### Prediction
 
@@ -47,3 +48,11 @@ preprocessing steps at PMOD/WRC. The script expects an input file with the follo
 - `mask` (640 x 640): Binary background mask for the IRCCAM location.
 
 An example input file (`example_input.mat`) is provided.
+
+## Abstract
+
+Cloud coverage is an important metric in weather prediction but is still most commonly determined by human observation. Automatic measurement using an RGB all-sky camera is unfortunately limited to daytime. To alleviate this problem the team at PMOD/WRC developed a prototype thermal infrared camera (IRCCAM). Their previous work utilized fixed thresholding which had problems with consistently detecting thin, high-altitude cirrus clouds. We utilized RGB images taken at the same location to create a labelled dataset on which we trained a deep learning semantic segmentation model. The resulting algorithm matches the previous approach in detecting thicker clouds and qualitatively outperforms it in detecting thinner cloud. We believe that coupled with the IRCCAM our model is comparable to human observation and can be used for continuous cloud coverage monitoring anywhere.
+
+## Report
+
+Read the full report [here](report.pdf).
