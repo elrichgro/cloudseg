@@ -19,7 +19,7 @@ parser.add_argument("--limit", type=int, help="Limit the number of predictions t
 
 args = parser.parse_args()
 
-assert os.path.isfile(args.input_file), f'Invalid input file: "{args.input_file}"'
+assert os.path.isfile(args.input_file), f'File does not exist: "{args.input_file}"'
 
 model = load_model(args.model)
 predictions = predict(model, args.input_file, args.limit)

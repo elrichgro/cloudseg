@@ -6,7 +6,6 @@ import torch
 import hdf5storage
 from tqdm import tqdm
 import os
-import numpy as np
 
 
 def load_data(input_path, limit=None):
@@ -16,6 +15,9 @@ def load_data(input_path, limit=None):
     data = []
 
     with h5py.File(input_path, "r") as f:
+        assert "mask" in f.keys(), "File does not contain 'mask' field"
+        assert "BT" in f.keys(), "File does not contain 'BT' field"
+        assert "TB" in f.keys(), "File does not contain 'TB' field"
         n = len(f["BT"])
         if limit is not None:
             n = min(n, limit)
