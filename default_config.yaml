@@ -14,7 +14,7 @@ num_workers: 0
 
 # Paths
 log_dir: data/training_logs
-dataset_root: data/datasets/optimized_4
+dataset_root: data/datasets/optimized_3
 
 # Weights & Biases logging
 use_wandb: true
