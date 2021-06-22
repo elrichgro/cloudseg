@@ -154,3 +154,4 @@ pretrained_models/
 wandb/
 **/*.mat
 !example_input.mat
+grid.yaml
