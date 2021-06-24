@@ -19,7 +19,16 @@ class HDF5Dataset(Dataset):
     Inspired by https://towardsdatascience.com/hdf5-datasets-for-pytorch-631ff1d750f5
     """
 
-    def __init__(self, dataset_root, split, transform=None, use_clear_sky=False, use_sun_mask=True, sun_radius=40):
+    def __init__(
+        self,
+        dataset_root,
+        split,
+        transform=None,
+        use_clear_sky=False,
+        ignore_background=False,
+        use_sun_mask=True,
+        sun_radius=40,
+    ):
         super().__init__()
         assert split in ["train", "val", "test"], "Invalid split {}".format(split)
 
@@ -36,6 +45,7 @@ class HDF5Dataset(Dataset):
 
         self.use_sun_mask = use_sun_mask
         self.sun_radius = sun_radius
+        self.ignore_background = ignore_background
 
         self.files = [os.path.join(os.path.join(dataset_root, day + ".h5")) for day in self.days]
         for h5dataset_fp in self.files:
@@ -67,6 +77,9 @@ class HDF5Dataset(Dataset):
 
         if self.transform:
             irc, label = self.transform((irc, label))
+
+        if not self.ignore_background:
+            label[label == -1] = 0
 
         return {"index": index, "timestamp": timestamp, "irc": irc, "label": label}
 

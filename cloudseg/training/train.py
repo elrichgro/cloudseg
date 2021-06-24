@@ -28,9 +28,9 @@ def train(args):
     ## Data
     val_trans = get_validation_transforms(args)
     train_trans = get_transforms(args)
-    dataset_train = HDF5Dataset(args.dataset_root, "train", train_trans, args.use_clear_sky)
-    dataset_val = HDF5Dataset(args.dataset_root, "val", val_trans, args.use_clear_sky)
-    dataset_test = HDF5Dataset(args.dataset_root, "test", val_trans, args.use_clear_sky)
+    dataset_train = HDF5Dataset(args.dataset_root, "train", train_trans, args.use_clear_sky, args.ignore_background)
+    dataset_val = HDF5Dataset(args.dataset_root, "val", val_trans, args.use_clear_sky, args.ignore_background)
+    dataset_test = HDF5Dataset(args.dataset_root, "test", val_trans, args.use_clear_sky, args.ignore_background)
     train_loader = DataLoader(
         dataset_train, args.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=args.num_workers
     )

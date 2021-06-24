@@ -22,6 +22,12 @@ def parse_args():
         type=lambda x: (str(x).lower() == "true"),
     )
     parser.add_argument(
+        "--ignore_background",
+        help="ignore background pixels when calculating loss and metrics",
+        default=False,
+        type=lambda x: (str(x).lower() == "true"),
+    )
+    parser.add_argument(
         "--random_mask",
         help="augment training data with random masks",
         default=True,
