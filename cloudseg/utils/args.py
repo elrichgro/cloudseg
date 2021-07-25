@@ -14,6 +14,12 @@ def parse_args():
     parser.add_argument("--num_epochs", help="number of epochs", default=16, type=int)
     parser.add_argument("--num_workers", help="number of workers for dataloader", default=0, type=int)
     parser.add_argument("--model_name", help="model name for training", default="deeplab", type=str)
+    parser.add_argument(
+        "--pretrained",
+        help="use pretrained decoder weights if supported",
+        default=False,
+        type=lambda x: (str(x).lower() == "true"),
+    )
     parser.add_argument("--learning_rate", help="learning rate", default=0.01, type=float)
     parser.add_argument(
         "--use_clear_sky",
