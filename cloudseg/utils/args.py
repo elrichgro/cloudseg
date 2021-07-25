@@ -40,6 +40,12 @@ def parse_args():
         type=lambda x: (str(x).lower() == "true"),
     )
     parser.add_argument(
+        "--val_rotation",
+        help="augment validation set with deterministic rotations based on timestamp",
+        default=True,
+        type=lambda x: (str(x).lower() == "true"),
+    )
+    parser.add_argument(
         "--random_rotations",
         help="augment training data with random rotations",
         default=True,

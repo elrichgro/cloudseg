@@ -76,7 +76,7 @@ class HDF5Dataset(Dataset):
             irc[irc_raw == 255] = 0.0
 
         if self.transform:
-            irc, label = self.transform((irc, label))
+            irc, label, _ = self.transform((irc, label, timestamp))
 
         if not self.ignore_background:
             label[label == -1] = 0
