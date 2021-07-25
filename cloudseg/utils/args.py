@@ -21,6 +21,7 @@ def parse_args():
         type=lambda x: (str(x).lower() == "true"),
     )
     parser.add_argument("--learning_rate", help="learning rate", default=0.01, type=float)
+    parser.add_argument("--cloud_weight", help="weight for cloud class in loss function", default=1.0, type=float)
     parser.add_argument(
         "--use_clear_sky",
         help="subtract clear sky from raw ir data",

@@ -13,7 +13,11 @@ class CloudSegmentation(pl.LightningModule):
 
         self.model = get_model(self.hparams.model_name, **kwargs)
 
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-1)
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(
+            reduction="mean",
+            ignore_index=-1 if kwargs.get("ignore_background") else -100,
+            weight=[1.0, 1.0 * kwargs.get("cloud_weight", 1.0)],
+        )
 
     def training_step(self, batch, batch_idx):
         batch_input = batch["irc"]
