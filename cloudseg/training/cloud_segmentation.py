@@ -1,6 +1,5 @@
 import pytorch_lightning as pl
 import torch
-from torchvision import transforms
 from pytorch_lightning.metrics.functional.classification import iou
 
 from cloudseg.models import get_model
@@ -13,10 +12,14 @@ class CloudSegmentation(pl.LightningModule):
 
         self.model = get_model(self.hparams.model_name, **kwargs)
 
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(
+        self.weighted_loss = torch.nn.CrossEntropyLoss(
             reduction="mean",
             ignore_index=-1 if kwargs.get("ignore_background") else -100,
             weight=torch.tensor([1.0, 1.0 * kwargs.get("cloud_weight", 1.0)]),
+        )
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(
+            reduction="mean",
+            ignore_index=-1 if kwargs.get("ignore_background") else -100,
         )
 
     def training_step(self, batch, batch_idx):
@@ -25,7 +28,7 @@ class CloudSegmentation(pl.LightningModule):
 
         pred_labels = self.model(batch_input)
 
-        loss = self.cross_entropy_loss(pred_labels, batch_labels)
+        loss = self.weighted_loss(pred_labels, batch_labels)
         self.log("train_loss", loss)
 
         return loss
@@ -57,6 +60,16 @@ class CloudSegmentation(pl.LightningModule):
 
         loss = self.cross_entropy_loss(pred_labels, batch_labels)
         self.log("test_loss", loss)
+
+        return {"preds": pred_labels, "labels": batch_labels}
+
+    def test_step_end(self, outputs):
+        mask = outputs["labels"] != -1
+        test_iou = iou(
+            torch.argmax(outputs["preds"], 1)[mask],
+            outputs["labels"][mask],
+        )
+        self.log("test_iou", test_iou, prog_bar=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
