@@ -35,7 +35,7 @@ cloudseg example_input.mat --limit 100 --model model1 --output_file example_pred
 - `input_file`: Path to the input file.
 - `output_dir`: Directory to save the output file.
 - `output_file`: Name for output file.
-- `limit` (optional): Limit the number of predictions to make. The first input images are used up to the specified limit.
+- `limit` (optional): Limit the number of predictions to make. The first input images are used up to the specified limit. This can be used to speed up predictions when testing.
 - `model`: Which model to use for predictions. Currently there is only one option: `model_1`.
 
 #### Input file
@@ -48,6 +48,17 @@ preprocessing steps at PMOD/WRC. The script expects an input file with the follo
 - `mask` (640 x 640): Binary background mask for the IRCCAM location.
 
 An example input file (`example_input.mat`) is provided.
+
+#### Output file
+
+The predictions are saved as binary matrices of size 640 x 640. Cloudy pixels are indicated by 1s. The predictions are saved as the variable `preds` in a matlab file with the specified name.
+
+#### Models
+There are currently 4 pre-trained models available for use. 
+- `model_1` is the original model used for the results in the report.
+- `model_2` was trained for longer, after hyper-parameter tuning, with better performance than `model_1`.
+- `model_2_high` was trained with a weighted loss function, penalizing incorrect cloud pixel predictions more than incorrect sky predictions.
+- `model_2_low` was trained with a weighted loss function, penalizing incorrect sky pixel predictions more than incorrect cloud predictions.
 
 ## Abstract
 
