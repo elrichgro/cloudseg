@@ -1,10 +1,10 @@
-torch<1.8
+torch==1.8.0
 torchvision
 tqdm
 h5py
 jupyterlab
 opencv-contrib-python
-opencv-python
+opencv-python==4.5.4.60
 pytorch-lightning==1.0.5
 future==0.17.1
 scipy

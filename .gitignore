@@ -148,7 +148,8 @@ lightning_logs
 training_logs
 
 # Large models
-pretrained_models/
+pretrained_models/*
+!pretrained_models/.gitkeep
 
 # Other
 wandb/
