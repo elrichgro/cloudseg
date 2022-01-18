@@ -19,3 +19,4 @@ gdown
 tqdm
 opencv_python_headless
 scikit_image
+Pillow
